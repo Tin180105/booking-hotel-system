@@ -1,9 +1,141 @@
-import express, { type Express, type Request, type Response } from 'express'
+import "dotenv/config";
 
-const app: Express = express()
+import express from "express";
+import cors from "cors";
 
-app.get('/', (req: Request, res: Response) => {
-  res.send('Hello World!')
-})
+import routes from "./routes";
 
-app.listen(3000)
+import {
+    connectDB,
+} from "./config/database";
+
+import hotelRoutes
+    from "../src/modules/hotels/hotel.routes";
+
+// ========================================
+// ENV CHECK
+// ========================================
+
+console.log("\n========================================");
+console.log("        ENV CONFIG CHECK");
+console.log("========================================");
+
+console.log(
+    "DB_SERVER:",
+    process.env.DB_SERVER
+);
+
+console.log(
+    "DB_DATABASE:",
+    process.env.DB_DATABASE
+);
+
+console.log(
+    "DB_USER:",
+    process.env.DB_USER
+);
+
+console.log(
+    "DB_PASSWORD:",
+    process.env.DB_PASSWORD
+        ? "********"
+        : "❌ UNDEFINED"
+);
+
+console.log(
+    "JWT_ACCESS_SECRET:",
+    process.env.JWT_ACCESS_SECRET
+        ? "********"
+        : "❌ UNDEFINED"
+);
+
+console.log(
+    "JWT_REFRESH_SECRET:",
+    process.env.JWT_REFRESH_SECRET
+        ? "********"
+        : "❌ UNDEFINED"
+);
+
+console.log(
+    "JWT_SECRET length:",
+    process.env.JWT_SECRET?.length
+);
+
+console.log("========================================\n");
+
+
+const app = express();
+
+
+// ========================================
+// MIDDLEWARE
+// ========================================
+
+app.use(cors());
+
+app.use(
+    express.json()
+);
+
+
+// ========================================
+// TEST API
+// ========================================
+
+app.get("/", (req, res) => {
+    res.json({
+        message:
+            "Booking Hotel API is running",
+    });
+});
+
+
+// ========================================
+// ROUTES
+// ========================================
+
+app.use(routes);
+
+// 👇 THÊM HOTEL ROUTE Ở ĐÂY
+app.use(
+    "/api/hotels",
+    hotelRoutes
+);
+
+
+// ========================================
+// START SERVER
+// ========================================
+
+const PORT =
+    Number(process.env.PORT) || 5000;
+
+const startServer = async () => {
+
+    try {
+
+        await connectDB();
+
+        app.listen(
+            PORT,
+            () => {
+
+                console.log(
+                    `Server running at http://localhost:${PORT}`
+                );
+
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Cannot start server:",
+            error
+        );
+
+        process.exit(1);
+    }
+};
+
+startServer();

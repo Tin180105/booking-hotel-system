@@ -1,28 +1,17 @@
-USE [BOOKING-HOTEL]
--- =========================================================
--- HOTEL MANAGEMENT SYSTEM
--- SQL SERVER DATABASE
--- =========================================================
+USE [BOOKING-HOTEL];
+GO
 
--- Nếu muốn tạo database mới:
--- CREATE DATABASE HotelManagement;
--- GO
--- USE HotelManagement;
--- GO
-
-
--- =========================================================
--- 1. RBAC & ACCOUNTS
--- =========================================================
+-- =========================
+-- ROLES & PERMISSIONS
+-- =========================
 
 CREATE TABLE roles (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(50) NOT NULL UNIQUE,
-    code VARCHAR(50) NOT NULL UNIQUE,
+    name NVARCHAR(50),
+    code VARCHAR(50),
     description NVARCHAR(255)
 );
 GO
-
 
 CREATE TABLE permissions (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -31,46 +20,21 @@ CREATE TABLE permissions (
 );
 GO
 
-
 CREATE TABLE role_permissions (
     role_id BIGINT NOT NULL,
     permission_id BIGINT NOT NULL,
 
-    CONSTRAINT PK_role_permissions
-        PRIMARY KEY (role_id, permission_id),
+    PRIMARY KEY (role_id, permission_id),
 
-    CONSTRAINT FK_role_permissions_roles
-        FOREIGN KEY (role_id)
-        REFERENCES roles(id),
-
-    CONSTRAINT FK_role_permissions_permissions
-        FOREIGN KEY (permission_id)
-        REFERENCES permissions(id)
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (permission_id) REFERENCES permissions(id)
 );
 GO
 
 
-CREATE TABLE users (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    role_id BIGINT NOT NULL,
-    hotel_id BIGINT NULL,
-    full_name NVARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    phone VARCHAR(20),
-    password_hash VARCHAR(255) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-
-    CONSTRAINT FK_users_roles
-        FOREIGN KEY (role_id)
-        REFERENCES roles(id)
-);
-GO
-
-
--- =========================================================
--- 2. PARTNER HOTELS & MEDIA
--- =========================================================
+-- =========================
+-- HOTELS & MEDIA
+-- =========================
 
 CREATE TABLE hotels (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -84,19 +48,14 @@ CREATE TABLE hotels (
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING_APPROVAL',
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
 
-    CONSTRAINT CK_hotels_commission_rate
-        CHECK (commission_rate >= 0 AND commission_rate <= 100),
-
-    CONSTRAINT CK_hotels_star_rating
-        CHECK (star_rating >= 1 AND star_rating <= 5)
+    CHECK (commission_rate BETWEEN 0 AND 100),
+    CHECK (star_rating BETWEEN 1 AND 5)
 );
 GO
-
 
 CREATE INDEX IX_hotels_city_status
 ON hotels(city, status);
 GO
-
 
 CREATE TABLE hotel_images (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -104,13 +63,11 @@ CREATE TABLE hotel_images (
     image_url VARCHAR(255) NOT NULL,
     is_primary BIT NOT NULL DEFAULT 0,
 
-    CONSTRAINT FK_hotel_images_hotels
-        FOREIGN KEY (hotel_id)
+    FOREIGN KEY (hotel_id)
         REFERENCES hotels(id)
         ON DELETE CASCADE
 );
 GO
-
 
 CREATE TABLE amenities (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -119,30 +76,47 @@ CREATE TABLE amenities (
 );
 GO
 
-
 CREATE TABLE hotel_amenities (
     hotel_id BIGINT NOT NULL,
     amenity_id BIGINT NOT NULL,
 
-    CONSTRAINT PK_hotel_amenities
-        PRIMARY KEY (hotel_id, amenity_id),
+    PRIMARY KEY (hotel_id, amenity_id),
 
-    CONSTRAINT FK_hotel_amenities_hotels
-        FOREIGN KEY (hotel_id)
+    FOREIGN KEY (hotel_id)
         REFERENCES hotels(id)
         ON DELETE CASCADE,
 
-    CONSTRAINT FK_hotel_amenities_amenities
-        FOREIGN KEY (amenity_id)
+    FOREIGN KEY (amenity_id)
         REFERENCES amenities(id)
         ON DELETE CASCADE
 );
 GO
 
 
--- =========================================================
--- 3. ROOM TYPES & PRICING ENGINE
--- =========================================================
+-- =========================
+-- USERS
+-- =========================
+
+CREATE TABLE users (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    role_id BIGINT NOT NULL,
+    hotel_id BIGINT NULL,
+    full_name NVARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    phone VARCHAR(20),
+    password_hash VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (hotel_id) REFERENCES hotels(id)
+);
+GO
+
+
+-- =========================
+-- ROOM TYPES
+-- =========================
 
 CREATE TABLE room_types (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -153,22 +127,15 @@ CREATE TABLE room_types (
     base_price DECIMAL(12,2) NOT NULL,
     description NVARCHAR(MAX),
 
-    CONSTRAINT FK_room_types_hotels
-        FOREIGN KEY (hotel_id)
+    FOREIGN KEY (hotel_id)
         REFERENCES hotels(id)
         ON DELETE CASCADE,
 
-    CONSTRAINT CK_room_types_capacity
-        CHECK (capacity > 0),
-
-    CONSTRAINT CK_room_types_total_rooms
-        CHECK (total_rooms > 0),
-
-    CONSTRAINT CK_room_types_base_price
-        CHECK (base_price >= 0)
+    CHECK (capacity > 0),
+    CHECK (total_rooms > 0),
+    CHECK (base_price >= 0)
 );
 GO
-
 
 CREATE TABLE room_type_images (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -176,13 +143,16 @@ CREATE TABLE room_type_images (
     image_url VARCHAR(255) NOT NULL,
     is_thumbnail BIT NOT NULL DEFAULT 0,
 
-    CONSTRAINT FK_room_type_images_room_types
-        FOREIGN KEY (room_type_id)
+    FOREIGN KEY (room_type_id)
         REFERENCES room_types(id)
         ON DELETE CASCADE
 );
 GO
 
+
+-- =========================
+-- PRICE RULES
+-- =========================
 
 CREATE TABLE price_rules (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -196,29 +166,26 @@ CREATE TABLE price_rules (
     priority INT NOT NULL DEFAULT 0,
     is_active BIT NOT NULL DEFAULT 1,
 
-    CONSTRAINT FK_price_rules_room_types
-        FOREIGN KEY (room_type_id)
+    FOREIGN KEY (room_type_id)
         REFERENCES room_types(id)
         ON DELETE CASCADE,
 
-    CONSTRAINT CK_price_rules_dates
-        CHECK (
-            end_date IS NULL
-            OR start_date IS NULL
-            OR end_date >= start_date
-        )
+    CHECK (
+        end_date IS NULL
+        OR start_date IS NULL
+        OR end_date >= start_date
+    )
 );
 GO
-
 
 CREATE INDEX IX_price_rules_room_type_active_dates
 ON price_rules(room_type_id, is_active, start_date, end_date);
 GO
 
 
--- =========================================================
--- 4. CUSTOMERS, BOOKING, WISHLIST & REVIEWS
--- =========================================================
+-- =========================
+-- CUSTOMERS
+-- =========================
 
 CREATE TABLE customers (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -231,26 +198,31 @@ CREATE TABLE customers (
 GO
 
 
+-- =========================
+-- WISHLIST
+-- =========================
+
 CREATE TABLE wishlists (
     customer_id BIGINT NOT NULL,
     hotel_id BIGINT NOT NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
 
-    CONSTRAINT PK_wishlists
-        PRIMARY KEY (customer_id, hotel_id),
+    PRIMARY KEY (customer_id, hotel_id),
 
-    CONSTRAINT FK_wishlists_customers
-        FOREIGN KEY (customer_id)
+    FOREIGN KEY (customer_id)
         REFERENCES customers(id)
         ON DELETE CASCADE,
 
-    CONSTRAINT FK_wishlists_hotels
-        FOREIGN KEY (hotel_id)
+    FOREIGN KEY (hotel_id)
         REFERENCES hotels(id)
         ON DELETE CASCADE
 );
 GO
 
+
+-- =========================
+-- PROMOTIONS
+-- =========================
 
 CREATE TABLE promotions (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -262,17 +234,16 @@ CREATE TABLE promotions (
     end_date DATETIME2 NOT NULL,
     is_active BIT NOT NULL DEFAULT 1,
 
-    CONSTRAINT CK_promotions_dates
-        CHECK (end_date > start_date),
-
-    CONSTRAINT CK_promotions_discount_value
-        CHECK (discount_value >= 0),
-
-    CONSTRAINT CK_promotions_max_discount
-        CHECK (max_discount IS NULL OR max_discount >= 0)
+    CHECK (end_date > start_date),
+    CHECK (discount_value >= 0),
+    CHECK (max_discount IS NULL OR max_discount >= 0)
 );
 GO
 
+
+-- =========================
+-- BOOKINGS
+-- =========================
 
 CREATE TABLE bookings (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -287,20 +258,16 @@ CREATE TABLE bookings (
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
     updated_at DATETIME2 NOT NULL DEFAULT GETDATE(),
 
-    CONSTRAINT FK_bookings_hotels
-        FOREIGN KEY (hotel_id)
-        REFERENCES hotels(id),
-
-    CONSTRAINT FK_bookings_customers
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(id),
-
-    CONSTRAINT FK_bookings_promotions
-        FOREIGN KEY (promotion_id)
-        REFERENCES promotions(id)
+    FOREIGN KEY (hotel_id) REFERENCES hotels(id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (promotion_id) REFERENCES promotions(id)
 );
 GO
 
+
+-- =========================
+-- BOOKING ROOMS
+-- =========================
 
 CREATE TABLE booking_rooms (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -311,35 +278,27 @@ CREATE TABLE booking_rooms (
     expected_check_in DATETIME2 NOT NULL,
     expected_check_out DATETIME2 NOT NULL,
 
-    CONSTRAINT FK_booking_rooms_bookings
-        FOREIGN KEY (booking_id)
+    FOREIGN KEY (booking_id)
         REFERENCES bookings(id)
         ON DELETE CASCADE,
 
-    CONSTRAINT FK_booking_rooms_room_types
-        FOREIGN KEY (room_type_id)
+    FOREIGN KEY (room_type_id)
         REFERENCES room_types(id),
 
-    CONSTRAINT CK_booking_rooms_quantity
-        CHECK (quantity > 0),
-
-    CONSTRAINT CK_booking_rooms_dates
-        CHECK (expected_check_out > expected_check_in),
-
-    CONSTRAINT CK_booking_rooms_price
-        CHECK (total_room_price >= 0)
+    CHECK (quantity > 0),
+    CHECK (expected_check_out > expected_check_in),
+    CHECK (total_room_price >= 0)
 );
 GO
-
 
 CREATE INDEX IX_booking_rooms_availability
-ON booking_rooms(
-    room_type_id,
-    expected_check_in,
-    expected_check_out
-);
+ON booking_rooms(room_type_id, expected_check_in, expected_check_out);
 GO
 
+
+-- =========================
+-- REVIEWS
+-- =========================
 
 CREATE TABLE reviews (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -350,27 +309,18 @@ CREATE TABLE reviews (
     comment NVARCHAR(MAX),
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
 
-    CONSTRAINT FK_reviews_bookings
-        FOREIGN KEY (booking_id)
-        REFERENCES bookings(id),
+    FOREIGN KEY (booking_id) REFERENCES bookings(id),
+    FOREIGN KEY (hotel_id) REFERENCES hotels(id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
 
-    CONSTRAINT FK_reviews_hotels
-        FOREIGN KEY (hotel_id)
-        REFERENCES hotels(id),
-
-    CONSTRAINT FK_reviews_customers
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(id),
-
-    CONSTRAINT CK_reviews_rating
-        CHECK (rating_score >= 1 AND rating_score <= 5)
+    CHECK (rating_score BETWEEN 1 AND 5)
 );
 GO
 
 
--- =========================================================
--- 5. PAYMENTS & PAYOUTS
--- =========================================================
+-- =========================
+-- PAYMENTS
+-- =========================
 
 CREATE TABLE payments (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -382,22 +332,23 @@ CREATE TABLE payments (
     paid_at DATETIME2 NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
 
-    CONSTRAINT FK_payments_bookings
-        FOREIGN KEY (booking_id)
+    FOREIGN KEY (booking_id)
         REFERENCES bookings(id)
         ON DELETE CASCADE,
 
-    CONSTRAINT CK_payments_amount
-        CHECK (amount >= 0)
+    CHECK (amount >= 0)
 );
 GO
-
 
 CREATE UNIQUE INDEX UX_payments_transaction_code
 ON payments(transaction_code)
 WHERE transaction_code IS NOT NULL;
 GO
 
+
+-- =========================
+-- PAYOUTS
+-- =========================
 
 CREATE TABLE payouts (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -410,26 +361,54 @@ CREATE TABLE payouts (
     payout_date DATETIME2 NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
 
-    CONSTRAINT FK_payouts_hotels
-        FOREIGN KEY (hotel_id)
+    FOREIGN KEY (hotel_id)
         REFERENCES hotels(id),
 
-    CONSTRAINT CK_payouts_amounts
-        CHECK (
-            total_booking_amount >= 0
-            AND total_commission >= 0
-            AND payout_amount >= 0
-        )
+    CHECK (
+        total_booking_amount >= 0
+        AND total_commission >= 0
+        AND payout_amount >= 0
+    )
 );
 GO
 
-
--- =========================================================
--- 6. BỔ SUNG FK users -> hotels
--- =========================================================
-
-ALTER TABLE users
-ADD CONSTRAINT FK_users_hotels
-    FOREIGN KEY (hotel_id)
-    REFERENCES hotels(id);
+USE [BOOKING-HOTEL];
 GO
+
+SELECT id, name, code
+FROM roles;
+
+INSERT INTO roles
+(
+    name,
+    code,
+    description
+)
+VALUES
+(
+    N'Customer',
+    'customer',
+    N'Quản trị người dùng'
+);
+
+USE [BOOKING-HOTEL];
+GO
+
+DELETE FROM roles;
+GO
+
+SELECT id, name, code
+FROM roles;
+
+CREATE TABLE refresh_tokens (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token VARCHAR(500) NOT NULL UNIQUE,
+    expires_at DATETIME2 NOT NULL,
+    revoked_at DATETIME2 NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);
