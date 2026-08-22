@@ -12,9 +12,9 @@ import {
 } from "./hotel.controller";
 
 import {
-    authenticateJWT,
-    requireAdminOrHotel,
-} from "../../middlewares/auth.middleware";
+  authenticateJWT as auth,
+  role
+} from '../../middlewares/auth.middleware';
 
 const router = Router();
 
@@ -25,8 +25,7 @@ const router = Router();
 
 router.post(
     "/",
-    authenticateJWT,
-    requireAdminOrHotel,
+    auth, role('admin', 'hotel'),
     createHotel
 );
 
@@ -36,22 +35,19 @@ router.get("/:id",getHotelById);
 
 router.put(
     "/:id",
-    authenticateJWT,
-    requireAdminOrHotel,
+    auth, role('admin', 'hotel'),
     updateHotel
 );
 
 router.delete(
     "/:id",
-    authenticateJWT,
-    requireAdminOrHotel,
+    auth, role('admin', 'hotel'),
     deleteHotel
 );
 
 router.patch(
     "/:id/status",
-    authenticateJWT,
-    requireAdminOrHotel,
+    auth, role('admin', 'hotel'),
     updateHotelStatus
 );
 

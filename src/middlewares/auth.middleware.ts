@@ -1,16 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
-
 import { verifyAccessToken } from '../utils/jwt';
 
-export interface AuthRequest extends Request {
 
+// ========================================
+// AUTH REQUEST
+// ========================================
+
+export interface AuthRequest extends Request {
   user?: {
     userId: number;
     roleId: number;
     roleCode: string;
   };
-
 }
+
+
+// ========================================
+// AUTHENTICATE JWT
+// ========================================
 
 export const authenticateJWT = (
   req: AuthRequest,
@@ -20,97 +27,95 @@ export const authenticateJWT = (
 
   const authHeader = req.headers.authorization;
 
-  if (
-    authHeader &&
-    authHeader.startsWith('Bearer ')
-  ) {
+  // Không có Authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
 
-    const token =
-      authHeader.split(' ')[1];
+    return res.status(401).json({
+      status: 'error',
+      message: 'Yêu cầu Header Authorization'
+    });
 
-    try {
+  }
 
-      req.user =
-        verifyAccessToken(token);
+  // Lấy token
+  const token = authHeader.split(' ')[1];
 
-      next();
+  try {
 
-    } catch (err) {
+    // Verify token
+    req.user = verifyAccessToken(token);
 
-      res.status(401).json({
+    next();
+
+  } catch (error) {
+
+    return res.status(401).json({
+      status: 'error',
+      message: 'Access Token không hợp lệ hoặc đã hết hạn'
+    });
+
+  }
+};
+
+
+// ========================================
+// CHECK ROLE
+// ========================================
+//
+// Ví dụ:
+//
+// role('admin')
+// role('admin', 'hotel')
+// role('admin', 'hotel', 'customer')
+//
+// Phải kết hợp với authenticateJWT:
+//
+// authenticateJWT,
+// role('admin'),
+// controller.create
+//
+// ========================================
+
+export const role = (...allowedRoles: string[]) => {
+
+  return (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) => {
+
+    // Chưa đăng nhập
+    if (!req.user) {
+
+      return res.status(401).json({
         status: 'error',
-        message:
-          'Access Token không hợp lệ hoặc đã hết hạn'
+        message: 'Chưa đăng nhập'
       });
 
     }
 
-  } else {
-
-    res.status(401).json({
-      status: 'error',
-      message:
-        'Yêu cầu Header Authorization'
-    });
-
-  }
-};
+    // Role của user hiện tại
+    const userRole = String(
+      req.user.roleCode || ''
+    ).toLowerCase();
 
 
-// ========================================
-// CHECK ADMIN
-// ========================================
+    // Các role được phép
+    const roles = allowedRoles.map(
+      item => String(item).toLowerCase()
+    );
 
-export const requireAdmin = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
 
-  // Chưa đăng nhập
-  if (!req.user) {
+    // Kiểm tra role
+    if (!roles.includes(userRole)) {
 
-    return res.status(401).json({
-      status: 'error',
-      message: 'Chưa đăng nhập'
-    });
+      return res.status(403).json({
+        status: 'error',
+        message: 'Bạn không có quyền thực hiện chức năng này'
+      });
 
-  }
+    }
 
-  // Kiểm tra role
-  if (String(req.user.roleCode || '').toUpperCase() !== 'ADMIN') {
-
-    return res.status(403).json({
-      status: 'error',
-      message:
-        'Chỉ ADMIN mới được thực hiện chức năng này'
-    });
-
-  }
-
-  next();
-};
-
-export const requireAdminOrHotel = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  if (!req.user) {
-    return res.status(401).json({
-      status: 'error',
-      message: 'Chưa đăng nhập'
-    });
-  }
-
-  const roleCode = String(req.user.roleCode || '').toUpperCase();
-
-  if (roleCode !== 'ADMIN' && roleCode !== 'HOTEL') {
-    return res.status(403).json({
-      status: 'error',
-      message: 'Chỉ ADMIN hoặc HOTEL mới được thực hiện chức năng này'
-    });
-  }
-
-  next();
+    next();
+  };
 };

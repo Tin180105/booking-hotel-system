@@ -101,7 +101,7 @@ app.use(
     "/api/hotels",
     hotelRoutes
 );
-
+app.use('/uploads', express.static('uploads'));
 
 // ========================================
 // START SERVER

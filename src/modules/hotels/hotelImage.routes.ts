@@ -9,8 +9,8 @@ import {
 } from './hotelImage.controller';
 
 import {
-  authenticateJWT,
-  requireAdminOrHotel
+  authenticateJWT as auth,
+  role
 } from '../../middlewares/auth.middleware';
 
 const router = Router();
@@ -22,6 +22,7 @@ const router = Router();
 
 router.get(
   '/hotels/:hotelId/images',
+  auth, role('admin', 'hotel', 'customer'),
   getImages
 );
 
@@ -32,6 +33,7 @@ router.get(
 
 router.get(
   '/hotel-images/:id',
+  auth, role('admin', 'hotel', 'customer'),
   getImage
 );
 
@@ -43,8 +45,7 @@ router.get(
 
 router.post(
   '/hotels/:hotelId/images',
-  authenticateJWT,
-  requireAdminOrHotel,
+  auth, role('admin', 'hotel', 'customer'),
   createImage
 );
 
@@ -56,8 +57,7 @@ router.post(
 
 router.put(
   '/hotel-images/:id/primary',
-  authenticateJWT,
-  requireAdminOrHotel,
+  auth, role('admin', 'hotel', 'customer'),
   setPrimary
 );
 
@@ -69,8 +69,7 @@ router.put(
 
 router.delete(
   '/hotel-images/:id',
-  authenticateJWT,
-  requireAdminOrHotel,
+  auth, role('admin', 'hotel', 'customer'),
   deleteImage
 );
 
