@@ -4,6 +4,34 @@ import { RoomTypeService } from './roomType.service';
 export const RoomTypeController = {
 
     // ========================================
+    // GET OVERVIEW
+    // ========================================
+
+    async getOverview(
+        req: Request,
+        res: Response
+    ) {
+
+        try {
+
+            const data =
+                await RoomTypeService.getOverview();
+
+            return res.status(200).json({
+                success: true,
+                data
+            });
+
+        } catch (error: any) {
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    },
+
+    // ========================================
     // GET ALL
     // ========================================
 

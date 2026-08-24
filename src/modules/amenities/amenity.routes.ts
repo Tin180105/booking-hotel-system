@@ -3,9 +3,10 @@ import { Router } from 'express';
 import { AmenityController } from './amenity.controller';
 
 import {
-  authenticateJWT as auth,
-  role
+    authenticateJWT as auth,
+    role
 } from '../../middlewares/auth.middleware';
+
 
 const router = Router();
 
@@ -16,37 +17,42 @@ const router = Router();
 
 // Ai cũng có thể xem
 router.get(
-  '/',
-  AmenityController.getAll
+    '/',
+    AmenityController.getAll
+);
+
+// Xem tổng quan từ VIEW
+router.get(
+    '/overview',
+    AmenityController.getOverview
 );
 
 router.get(
-  '/:id',
-  AmenityController.getById
+    '/:id',
+    AmenityController.getById
 );
 
 
 // Chỉ ADMIN
 router.post(
-  '/',
-  auth,
-  role('admin'),
-  AmenityController.create
+    '/',
+    auth,
+    role('admin'),
+    AmenityController.create
 );
 
 router.put(
-  '/:id',
-  auth,
-  role('admin'),
-  AmenityController.update
+    '/:id',
+    auth,
+    role('admin'),
+    AmenityController.update
 );
 
 router.delete(
-  '/:id',
-  auth,
-  role('admin'),
-  AmenityController.delete
+    '/:id',
+    auth,
+    role('admin'),
+    AmenityController.delete
 );
-
 
 export default router;

@@ -7,6 +7,10 @@ export const AmenityService = {
         return await AmenityModel.getAll();
     },
 
+    async getOverview() {
+        return await AmenityModel.getOverview();
+    },
+
     // GET BY ID
     async getById(id: number) {
 

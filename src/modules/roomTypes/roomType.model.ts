@@ -4,6 +4,33 @@ import { getConnection } from '../../config/database';
 export const RoomTypeModel = {
 
     // ========================================
+    // GET ROOM TYPE OVERVIEW
+    // ========================================
+
+    async getOverview() {
+
+        const pool = await getConnection();
+
+        const result = await pool.request()
+            .query(`
+                SELECT
+                    room_type_id,
+                    hotel_id,
+                    hotel_name,
+                    room_type_name,
+                    capacity,
+                    total_rooms,
+                    base_price,
+                    description,
+                    total_images
+                FROM vw_RoomTypeOverview
+                ORDER BY room_type_id DESC
+            `);
+
+        return result.recordset;
+    },
+
+    // ========================================
     // GET ALL ROOM TYPES
     // ========================================
 

@@ -10,6 +10,14 @@ export interface UserRegisterDTO {
   hotel_id?: number | null;
 }
 
+export interface UserUpdateDTO {
+  full_name: string;
+  email: string;
+  phone?: string | null;
+  hotel_id?: number | null;
+  password_hash: string;
+}
+
 export class AuthModel {
 
   // ========================================
@@ -33,7 +41,8 @@ export class AuthModel {
           u.phone,
           u.password_hash,
           u.status,
-          r.code AS role_code
+          r.code AS role_code,
+          r.name AS role_name
 
         FROM users u
 
@@ -130,6 +139,82 @@ export class AuthModel {
       `);
 
     return result.recordset[0];
+  }
+
+  static async findUserById(userId: number) {
+    const pool = await getConnection();
+
+    const result = await pool
+      .request()
+      .input('user_id', sql.BigInt, userId)
+      .query(`
+        SELECT
+          u.id,
+          u.role_id,
+          u.hotel_id,
+          u.full_name,
+          u.email,
+          u.phone,
+          u.password_hash,
+          u.status,
+          r.code AS role_code,
+          r.name AS role_name
+        FROM users u
+        INNER JOIN roles r ON u.role_id = r.id
+        WHERE u.id = @user_id
+      `);
+
+    return result.recordset[0] || null;
+  }
+
+  static async updateUser(userId: number, data: UserUpdateDTO) {
+    const pool = await getConnection();
+
+    const result = await pool
+      .request()
+      .input('user_id', sql.BigInt, userId)
+      .input('full_name', sql.NVarChar, data.full_name)
+      .input('email', sql.VarChar, data.email)
+      .input('phone', sql.VarChar, data.phone ?? null)
+      .input('hotel_id', sql.BigInt, data.hotel_id ?? null)
+      .input('password_hash', sql.VarChar, data.password_hash)
+      .query(`
+        UPDATE u
+        SET
+          hotel_id = @hotel_id,
+          full_name = @full_name,
+          email = @email,
+          phone = @phone,
+          password_hash = @password_hash
+        OUTPUT
+          INSERTED.id,
+          INSERTED.role_id,
+          INSERTED.hotel_id,
+          INSERTED.full_name,
+          INSERTED.email,
+          INSERTED.phone,
+          INSERTED.status
+        FROM users u
+        WHERE u.id = @user_id
+      `);
+
+    return result.recordset[0] || null;
+  }
+
+  static async deleteUser(userId: number) {
+    const pool = await getConnection();
+
+    const result = await pool
+      .request()
+      .input('user_id', sql.BigInt, userId)
+      .query(`
+        DELETE u
+        OUTPUT DELETED.id
+        FROM users u
+        WHERE u.id = @user_id
+      `);
+
+    return result.rowsAffected[0] > 0;
   }
 
 

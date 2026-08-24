@@ -20,6 +20,12 @@ router.get(
     RoomTypeController.getAll
 );
 
+// Xem tổng quan loại phòng
+router.get(
+    '/overview',
+    RoomTypeController.getOverview
+);
+
 
 // Xem loại phòng của một hotel
 router.get(

@@ -412,3 +412,4 @@ CREATE TABLE refresh_tokens (
         REFERENCES users(id)
         ON DELETE CASCADE
 );
+

@@ -4,9 +4,19 @@ import { AuthService } from './auth.service';
 export class AuthController {
   static async register(req: Request, res: Response) {
     try {
-      const { full_name, email, password } = req.body;
+      const { full_name, email, password, hotel_id, phone } = req.body;
       const roleId = Number(req.body.role_id ?? req.body.roleId);
-      const user = await AuthService.register(full_name, email, password, roleId);
+      const hotelId = hotel_id === null || hotel_id === undefined
+        ? null
+        : Number(hotel_id);
+      const user = await AuthService.register(
+        full_name,
+        email,
+        password,
+        roleId,
+        hotelId,
+        phone
+      );
       res.status(201).json({ status: 'success', data: user });
     } catch (err: any) {
       res.status(400).json({ status: 'error', message: err.message });
@@ -53,6 +63,26 @@ export class AuthController {
       res.json({ status: 'success', message: 'Đăng xuất thành công' });
     } catch (err: any) {
       res.status(500).json({ status: 'error', message: err.message });
+    }
+  }
+
+  static async updateUser(req: Request, res: Response) {
+    try {
+      const userId = Number(req.params.id);
+      const user = await AuthService.updateUser(userId, req.body);
+      res.json({ status: 'success', data: user });
+    } catch (err: any) {
+      res.status(400).json({ status: 'error', message: err.message });
+    }
+  }
+
+  static async deleteUser(req: Request, res: Response) {
+    try {
+      const userId = Number(req.params.id);
+      await AuthService.deleteUser(userId);
+      res.json({ status: 'success', message: 'Xóa tài khoản thành công' });
+    } catch (err: any) {
+      res.status(400).json({ status: 'error', message: err.message });
     }
   }
 }

@@ -3,6 +3,15 @@ import { RoomTypeModel } from './roomType.model';
 export const RoomTypeService = {
 
     // ========================================
+    // GET OVERVIEW
+    // ========================================
+
+    async getOverview() {
+
+        return await RoomTypeModel.getOverview();
+    },
+
+    // ========================================
     // GET ALL
     // ========================================
 

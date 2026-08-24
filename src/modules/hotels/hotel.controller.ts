@@ -70,6 +70,34 @@ export const getHotels = async (
 
 
 // ========================================
+// GET OVERVIEW - VIEW
+// ========================================
+
+export const getHotelOverview = async (
+    req: Request,
+    res: Response
+) => {
+
+    try {
+
+        const hotels =
+            await hotelService.getHotelOverview();
+
+        return res.status(200).json({
+            hotels,
+        });
+
+    } catch (error) {
+
+        return res.status(500).json({
+            message:
+                "Không thể lấy tổng quan hotel",
+        });
+    }
+};
+
+
+// ========================================
 // GET BY ID
 // ========================================
 

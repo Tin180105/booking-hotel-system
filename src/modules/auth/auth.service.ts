@@ -3,9 +3,20 @@ import { AuthModel } from './auth.model';
 import { generateTokens, verifyRefreshToken } from '../../utils/jwt';
 
 export class AuthService {
-  static async register(fullName: string, email: string, password: string, roleId: number) {
+  static async register(
+    fullName: string,
+    email: string,
+    password: string,
+    roleId: number,
+    hotelId: number | null = null,
+    phone: string | null = null
+  ) {
     if (!Number.isInteger(roleId) || roleId <= 0) {
       throw new Error('role_id là bắt buộc và phải là số nguyên dương');
+    }
+
+    if (hotelId !== null && (!Number.isInteger(hotelId) || hotelId <= 0)) {
+      throw new Error('hotel_id phải là số nguyên dương');
     }
 
     const existingUser = await AuthModel.findUserByEmail(email);
@@ -19,6 +30,8 @@ export class AuthService {
       email,
       password_hash: passwordHash,
       role_id: roleId,
+      hotel_id: hotelId,
+      phone,
     });
   }
 
@@ -44,6 +57,68 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  static async updateUser(userId: number, data: {
+    full_name?: string;
+    email?: string;
+    phone?: string | null;
+    hotel_id?: number | null;
+    password?: string;
+  }) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new Error('user_id không hợp lệ');
+    }
+
+    const currentUser = await AuthModel.findUserById(userId);
+    if (!currentUser) {
+      throw new Error('Không tìm thấy tài khoản');
+    }
+
+    const hotelId = data.hotel_id !== undefined
+      ? data.hotel_id
+      : currentUser.hotel_id;
+    if (hotelId !== null && (!Number.isInteger(hotelId) || hotelId <= 0)) {
+      throw new Error('hotel_id phải là số nguyên dương');
+    }
+
+    const fullName = data.full_name ?? currentUser.full_name;
+    const email = data.email ?? currentUser.email;
+    if (!fullName.trim() || !email.trim()) {
+      throw new Error('full_name và email không được để trống');
+    }
+
+    if (email !== currentUser.email) {
+      const existingUser = await AuthModel.findUserByEmail(email);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('Email đã được sử dụng');
+      }
+    }
+
+    const passwordHash = data.password
+      ? await bcrypt.hash(data.password, await bcrypt.genSalt(10))
+      : currentUser.password_hash;
+
+    return await AuthModel.updateUser(userId, {
+      full_name: fullName,
+      email,
+      phone: data.phone !== undefined ? data.phone : currentUser.phone,
+      hotel_id: hotelId,
+      password_hash: passwordHash,
+    });
+  }
+
+  static async deleteUser(userId: number) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new Error('user_id không hợp lệ');
+    }
+
+    const currentUser = await AuthModel.findUserById(userId);
+    if (!currentUser) {
+      throw new Error('Không tìm thấy tài khoản');
+    }
+
+    await AuthModel.deleteUser(userId);
   }
 
   static async refreshToken(token: string) {

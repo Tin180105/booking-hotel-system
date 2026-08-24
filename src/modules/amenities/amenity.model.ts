@@ -25,6 +25,23 @@ export const AmenityModel = {
         return result.recordset;
     },
 
+    // GET ALL - VIEW
+    async getOverview() {
+        const pool = await getConnection();
+
+        const result = await pool.request().query(`
+            SELECT
+                amenity_id,
+                amenity_name,
+                icon_code,
+                total_hotels
+            FROM vw_AmenityOverview
+            ORDER BY amenity_id DESC
+        `);
+
+        return result.recordset;
+    },
+
     // GET BY ID
     async getById(id: number) {
         const pool = await getConnection();

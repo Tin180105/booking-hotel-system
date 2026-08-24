@@ -1,0 +1,20 @@
+USE [BOOKING-HOTEL];
+GO
+
+CREATE VIEW vw_HotelAmenities
+AS
+SELECT
+    ha.hotel_id,
+    h.name AS hotel_name,
+    ha.amenity_id,
+    a.name AS amenity_name,
+    a.icon_code
+
+FROM hotel_amenities ha
+
+INNER JOIN hotels h
+    ON ha.hotel_id = h.id
+
+INNER JOIN amenities a
+    ON ha.amenity_id = a.id;
+GO

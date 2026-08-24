@@ -24,6 +24,30 @@ export const AmenityController = {
         }
     },
 
+
+    // GET /api/amenities/overview
+    async getOverview(req: Request, res: Response) {
+
+        try {
+
+            const amenities =
+                await AmenityService.getOverview();
+
+            return res.status(200).json({
+                success: true,
+                data: amenities
+            });
+
+        } catch (error: any) {
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    },
+
+
     // GET /api/amenities/:id
     async getById(req: Request, res: Response) {
 
@@ -47,6 +71,7 @@ export const AmenityController = {
             });
         }
     },
+
 
     // POST /api/amenities
     async create(req: Request, res: Response) {
@@ -75,6 +100,7 @@ export const AmenityController = {
             });
         }
     },
+
 
     // PUT /api/amenities/:id
     async update(req: Request, res: Response) {
@@ -106,6 +132,7 @@ export const AmenityController = {
             });
         }
     },
+
 
     // DELETE /api/amenities/:id
     async delete(req: Request, res: Response) {
