@@ -378,19 +378,6 @@ GO
 SELECT id, name, code
 FROM roles;
 
-INSERT INTO roles
-(
-    name,
-    code,
-    description
-)
-VALUES
-(
-    N'Customer',
-    'customer',
-    N'Quản trị người dùng'
-);
-
 USE [BOOKING-HOTEL];
 GO
 

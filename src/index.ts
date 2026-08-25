@@ -97,10 +97,7 @@ app.get("/", (req, res) => {
 app.use(routes);
 
 // 👇 THÊM HOTEL ROUTE Ở ĐÂY
-app.use(
-    "/api/hotels",
-    hotelRoutes
-);
+app.use("/api/hotels",hotelRoutes);
 app.use('/uploads', express.static('uploads'));
 
 // ========================================
