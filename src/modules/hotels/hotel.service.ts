@@ -3,7 +3,8 @@ import { getDB } from "../../config/database";
 import {
     CreateHotelRequest,
     UpdateHotelRequest,
-    HotelOverview
+    HotelOverview,
+    HotelRevenue
 } from "./hotel.model";
 
 import { HotelModel } from "./hotel.model";
@@ -480,5 +481,15 @@ export const updateHotelStatus = async (
 export const getHotelOverview = async (): Promise<HotelOverview[]> => {
 
     return await HotelModel.getOverview();
+
+};
+
+// ========================================
+// GET HOTEL REVENUE - VIEW
+// ========================================
+
+export const getHotelRevenue = async (): Promise<HotelRevenue[]> => {
+
+    return await HotelModel.getRevenue();
 
 };

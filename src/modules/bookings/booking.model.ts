@@ -18,12 +18,26 @@ export interface Booking {
 export interface CreateBookingDTO {
     hotel_id: number;
     customer_id: number;
+    room_type_id: number;
+    quantity: number;
+    check_in: Date | string;
+    check_out: Date | string;
     promotion_id?: number | null;
+}
+
+export interface CreateBookingResult {
+    booking_id: number;
     booking_code: string;
-    status?: string;
-    total_amount?: number;
-    commission_amount?: number;
-    final_amount?: number;
+    hotel_id: number;
+    customer_id: number;
+    status: string;
+    total_amount: number;
+    final_amount: number;
+    room_type_id: number;
+    quantity: number;
+    total_room_price: number;
+    expected_check_in: Date;
+    expected_check_out: Date;
 }
 
 export interface UpdateBookingDTO {
@@ -100,77 +114,23 @@ export class BookingModel {
     // =========================
     static async create(
         data: CreateBookingDTO
-    ): Promise<Booking> {
+    ): Promise<CreateBookingResult> {
 
         const pool = await getConnection();
 
         const result = await pool.request()
-            .input('hotel_id', sql.BigInt, data.hotel_id)
-            .input('customer_id', sql.BigInt, data.customer_id)
+            .input('HotelId', sql.BigInt, data.hotel_id)
+            .input('CustomerId', sql.BigInt, data.customer_id)
+            .input('RoomTypeId', sql.BigInt, data.room_type_id)
+            .input('Quantity', sql.Int, data.quantity)
+            .input('CheckIn', sql.DateTime2, data.check_in)
+            .input('CheckOut', sql.DateTime2, data.check_out)
             .input(
-                'promotion_id',
+                'PromotionId',
                 sql.BigInt,
                 data.promotion_id ?? null
             )
-            .input(
-                'booking_code',
-                sql.VarChar(30),
-                data.booking_code
-            )
-            .input(
-                'status',
-                sql.VarChar(30),
-                data.status ?? 'PENDING'
-            )
-            .input(
-                'total_amount',
-                sql.Decimal(12, 2),
-                data.total_amount ?? 0
-            )
-            .input(
-                'commission_amount',
-                sql.Decimal(12, 2),
-                data.commission_amount ?? 0
-            )
-            .input(
-                'final_amount',
-                sql.Decimal(12, 2),
-                data.final_amount ?? 0
-            )
-            .query(`
-                INSERT INTO bookings (
-                    hotel_id,
-                    customer_id,
-                    promotion_id,
-                    booking_code,
-                    status,
-                    total_amount,
-                    commission_amount,
-                    final_amount
-                )
-                OUTPUT
-                    INSERTED.id,
-                    INSERTED.hotel_id,
-                    INSERTED.customer_id,
-                    INSERTED.promotion_id,
-                    INSERTED.booking_code,
-                    INSERTED.status,
-                    INSERTED.total_amount,
-                    INSERTED.commission_amount,
-                    INSERTED.final_amount,
-                    INSERTED.created_at,
-                    INSERTED.updated_at
-                VALUES (
-                    @hotel_id,
-                    @customer_id,
-                    @promotion_id,
-                    @booking_code,
-                    @status,
-                    @total_amount,
-                    @commission_amount,
-                    @final_amount
-                )
-            `);
+            .execute('sp_CreateBooking');
 
         return result.recordset[0];
     }
@@ -266,5 +226,19 @@ export class BookingModel {
             `);
 
         return result.rowsAffected[0] > 0;
+    }
+
+    // =========================
+    // GET OVERVIEW
+    // =========================
+    static async getOverview(): Promise<any[]> {
+        const pool = await getConnection();
+
+        const result = await pool.request().query(`
+            SELECT * FROM vw_BookingOverview
+            ORDER BY booking_created_at DESC
+        `);
+
+        return result.recordset;
     }
 }

@@ -14,6 +14,13 @@ export class BookingService {
     }
 
     // =========================
+    // GET OVERVIEW
+    // =========================
+    static async getOverview() {
+        return await BookingModel.getOverview();
+    }
+
+    // =========================
     // GET BY ID
     // =========================
     static async getById(id: number) {
@@ -40,47 +47,25 @@ export class BookingService {
             throw new Error('Valid customer_id is required');
         }
 
-        if (!data.booking_code || data.booking_code.trim() === '') {
-            throw new Error('Booking code is required');
+        if (!data.room_type_id || data.room_type_id <= 0) {
+            throw new Error('Valid room_type_id is required');
         }
 
-        if (data.total_amount !== undefined &&
-            data.total_amount < 0) {
-            throw new Error('Total amount cannot be negative');
+        if (!data.quantity || data.quantity <= 0) {
+            throw new Error('Quantity must be greater than 0');
         }
 
-        if (data.commission_amount !== undefined &&
-            data.commission_amount < 0) {
-            throw new Error('Commission amount cannot be negative');
+        if (!data.check_in || !data.check_out) {
+            throw new Error('Check-in and check-out are required');
         }
 
-        if (data.final_amount !== undefined &&
-            data.final_amount < 0) {
-            throw new Error('Final amount cannot be negative');
+        if (Number.isNaN(Date.parse(String(data.check_in))) ||
+            Number.isNaN(Date.parse(String(data.check_out))) ||
+            new Date(data.check_out) <= new Date(data.check_in)) {
+            throw new Error('Check-out must be later than check-in');
         }
 
-        const status = (
-            data.status ?? 'PENDING'
-        ).toUpperCase();
-
-        const allowedStatuses = [
-            'PENDING',
-            'CONFIRMED',
-            'CANCELLED',
-            'COMPLETED'
-        ];
-
-        if (!allowedStatuses.includes(status)) {
-            throw new Error(
-                'Invalid booking status'
-            );
-        }
-
-        return await BookingModel.create({
-            ...data,
-            booking_code: data.booking_code.trim().toUpperCase(),
-            status
-        });
+        return await BookingModel.create(data);
     }
 
     // =========================

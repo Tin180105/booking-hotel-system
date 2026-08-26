@@ -30,6 +30,32 @@ export class BookingController {
     }
 
     // =========================
+    // GET OVERVIEW
+    // =========================
+    static async getOverview(
+        req: Request,
+        res: Response
+    ) {
+        try {
+
+            const overview =
+                await BookingService.getOverview();
+
+            return res.status(200).json({
+                success: true,
+                data: overview
+            });
+
+        } catch (error: any) {
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
+    // =========================
     // GET BY ID
     // =========================
     static async getById(

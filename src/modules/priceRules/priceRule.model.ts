@@ -226,133 +226,67 @@ export class PriceRuleModel {
     ) {
         const pool = await getConnection();
 
-        const request = pool
+        const existing = await this.getById(id);
+
+        if (!existing) {
+            return null;
+        }
+
+        const result = await pool
             .request()
-            .input('id', sql.BigInt, id);
-
-        const fields: string[] = [];
-
-        if (data.room_type_id !== undefined) {
-            request.input(
-                'room_type_id',
+            .input('Id', sql.BigInt, id)
+            .input(
+                'RoomTypeId',
                 sql.BigInt,
-                data.room_type_id
-            );
-
-            fields.push(
-                'room_type_id = @room_type_id'
-            );
-        }
-
-        if (data.rule_name !== undefined) {
-            request.input(
-                'rule_name',
+                data.room_type_id ?? existing.room_type_id
+            )
+            .input(
+                'RuleName',
                 sql.NVarChar(100),
-                data.rule_name
-            );
-
-            fields.push(
-                'rule_name = @rule_name'
-            );
-        }
-
-        if (data.start_date !== undefined) {
-            request.input(
-                'start_date',
+                data.rule_name ?? existing.rule_name
+            )
+            .input(
+                'StartDate',
                 sql.Date,
-                data.start_date
-            );
-
-            fields.push(
-                'start_date = @start_date'
-            );
-        }
-
-        if (data.end_date !== undefined) {
-            request.input(
-                'end_date',
+                data.start_date !== undefined
+                    ? data.start_date
+                    : existing.start_date
+            )
+            .input(
+                'EndDate',
                 sql.Date,
-                data.end_date
-            );
-
-            fields.push(
-                'end_date = @end_date'
-            );
-        }
-
-        if (data.days_of_week !== undefined) {
-            request.input(
-                'days_of_week',
+                data.end_date !== undefined
+                    ? data.end_date
+                    : existing.end_date
+            )
+            .input(
+                'DaysOfWeek',
                 sql.VarChar(20),
-                data.days_of_week
-            );
-
-            fields.push(
-                'days_of_week = @days_of_week'
-            );
-        }
-
-        if (data.adjustment_type !== undefined) {
-            request.input(
-                'adjustment_type',
+                data.days_of_week !== undefined
+                    ? data.days_of_week
+                    : existing.days_of_week
+            )
+            .input(
+                'AdjustmentType',
                 sql.VarChar(20),
-                data.adjustment_type
-            );
-
-            fields.push(
-                'adjustment_type = @adjustment_type'
-            );
-        }
-
-        if (data.adjustment_value !== undefined) {
-            request.input(
-                'adjustment_value',
+                data.adjustment_type ?? existing.adjustment_type
+            )
+            .input(
+                'AdjustmentValue',
                 sql.Decimal(12, 2),
-                data.adjustment_value
-            );
-
-            fields.push(
-                'adjustment_value = @adjustment_value'
-            );
-        }
-
-        if (data.priority !== undefined) {
-            request.input(
-                'priority',
+                data.adjustment_value ?? existing.adjustment_value
+            )
+            .input(
+                'Priority',
                 sql.Int,
-                data.priority
-            );
-
-            fields.push(
-                'priority = @priority'
-            );
-        }
-
-        if (data.is_active !== undefined) {
-            request.input(
-                'is_active',
+                data.priority ?? existing.priority
+            )
+            .input(
+                'IsActive',
                 sql.Bit,
-                data.is_active
-            );
-
-            fields.push(
-                'is_active = @is_active'
-            );
-        }
-
-        if (fields.length === 0) {
-            throw new Error('No fields to update');
-        }
-
-        const result = await request.query(`
-            UPDATE price_rules
-            SET ${fields.join(', ')}
-            WHERE id = @id;
-
-            SELECT *
-            FROM price_rules
-            WHERE id = @id;
-        `);
+                data.is_active ?? existing.is_active
+            )
+            .execute('sp_UpdatePriceRule');
 
         return result.recordset[0] || null;
     }

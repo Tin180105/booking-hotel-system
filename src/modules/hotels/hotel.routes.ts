@@ -10,6 +10,7 @@ import {
     deleteHotel,
     updateHotelStatus,
     getHotelOverview,
+    getHotelRevenue,
 } from "./hotel.controller";
 
 import {
@@ -34,6 +35,12 @@ router.get(
 router.get(
     "/overview",
     getHotelOverview
+);
+
+// Xem doanh thu khách sạn từ VIEW
+router.get(
+    "/revenue",
+    getHotelRevenue
 );
 
 // Xem khách sạn theo ID

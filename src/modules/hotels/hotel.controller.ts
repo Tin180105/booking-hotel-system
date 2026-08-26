@@ -98,6 +98,34 @@ export const getHotelOverview = async (
 
 
 // ========================================
+// GET REVENUE - VIEW
+// ========================================
+
+export const getHotelRevenue = async (
+    req: Request,
+    res: Response
+) => {
+
+    try {
+
+        const revenue =
+            await hotelService.getHotelRevenue();
+
+        return res.status(200).json({
+            revenue,
+        });
+
+    } catch (error) {
+
+        return res.status(500).json({
+            message:
+                "Không thể lấy doanh thu hotel",
+        });
+    }
+};
+
+
+// ========================================
 // GET BY ID
 // ========================================
 
