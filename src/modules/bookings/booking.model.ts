@@ -113,27 +113,27 @@ export class BookingModel {
     // CREATE
     // =========================
     static async create(
-        data: CreateBookingDTO
-    ): Promise<CreateBookingResult> {
+    data: CreateBookingDTO
+): Promise<CreateBookingResult> {
 
-        const pool = await getConnection();
+    const pool = await getConnection();
 
-        const result = await pool.request()
-            .input('HotelId', sql.BigInt, data.hotel_id)
-            .input('CustomerId', sql.BigInt, data.customer_id)
-            .input('RoomTypeId', sql.BigInt, data.room_type_id)
-            .input('Quantity', sql.Int, data.quantity)
-            .input('CheckIn', sql.DateTime2, data.check_in)
-            .input('CheckOut', sql.DateTime2, data.check_out)
-            .input(
-                'PromotionId',
-                sql.BigInt,
-                data.promotion_id ?? null
-            )
-            .execute('sp_CreateBooking');
+    const result = await pool.request()
+        .input('HotelId', sql.BigInt, data.hotel_id)
+        .input('CustomerId', sql.BigInt, data.customer_id)
+        .input('RoomTypeId', sql.BigInt, data.room_type_id)
+        .input('Quantity', sql.Int, data.quantity)
+        .input('CheckIn', sql.DateTime2, data.check_in)
+        .input('CheckOut', sql.DateTime2, data.check_out)
+        .input(
+            'PromotionId',
+            sql.BigInt,
+            data.promotion_id ?? null
+        )
+        .execute('dbo.sp_CreateBooking');
 
-        return result.recordset[0];
-    }
+    return result.recordset[0];
+}
 
     // =========================
     // UPDATE

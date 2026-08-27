@@ -1,7 +1,7 @@
 USE [BOOKING-HOTEL];
 GO
 
-CREATE PROCEDURE dbo.sp_CreateBooking
+ALTER PROCEDURE dbo.sp_CreateBooking
     @HotelId BIGINT,
     @CustomerId BIGINT,
     @RoomTypeId BIGINT,
@@ -200,6 +200,69 @@ BEGIN
             * @Quantity
             * @TotalNights;
 
+        -- ========================================
+-- 11.1. TÍNH PROMOTION
+-- ========================================
+
+DECLARE @DiscountAmount DECIMAL(12,2) = 0;
+DECLARE @DiscountType VARCHAR(20);
+DECLARE @DiscountValue DECIMAL(12,2);
+DECLARE @MaxDiscount DECIMAL(12,2);
+
+IF @PromotionId IS NOT NULL
+BEGIN
+    SELECT
+        @DiscountType = discount_type,
+        @DiscountValue = discount_value,
+        @MaxDiscount = max_discount
+    FROM promotions
+    WHERE id = @PromotionId
+      AND is_active = 1
+      AND @CheckIn >= start_date
+      AND @CheckIn <= end_date;
+
+    IF @DiscountType IS NULL
+    BEGIN
+        RAISERROR(
+            N'Promotion không tồn tại, đã hết hạn hoặc không hoạt động',
+            16,
+            1
+        );
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
+
+    -- Giảm theo phần trăm
+    IF @DiscountType = 'PERCENT'
+    BEGIN
+        SET @DiscountAmount =
+            @TotalRoomPrice * @DiscountValue / 100;
+    END;
+
+    -- Giảm số tiền cố định
+    IF @DiscountType = 'FIXED'
+    BEGIN
+        SET @DiscountAmount = @DiscountValue;
+    END;
+
+    -- Áp dụng mức giảm tối đa
+    IF @MaxDiscount IS NOT NULL
+       AND @DiscountAmount > @MaxDiscount
+    BEGIN
+        SET @DiscountAmount = @MaxDiscount;
+    END;
+
+    -- Không giảm quá tổng tiền
+    IF @DiscountAmount > @TotalRoomPrice
+    BEGIN
+        SET @DiscountAmount = @TotalRoomPrice;
+    END;
+END;
+
+DECLARE @FinalAmount DECIMAL(12,2);
+
+SET @FinalAmount =
+    @TotalRoomPrice - @DiscountAmount;
 
         -- ========================================
         -- 12. TẠO BOOKING CODE
@@ -235,7 +298,7 @@ BEGIN
             'PENDING',
             @TotalRoomPrice,
             0,
-            @TotalRoomPrice
+            @FinalAmount
         );
 
 
@@ -309,19 +372,13 @@ BEGIN
     END TRY
 
     BEGIN CATCH
+    IF @@TRANCOUNT > 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+    END;
 
-        IF @@TRANCOUNT > 0
-        BEGIN
-            ROLLBACK TRANSACTION;
-        END;
-
-        RAISERROR(
-            'Khong the tao booking.',
-            16,
-            1
-        );
-
-    END CATCH;
+    THROW;
+END CATCH;
 
 END;
 GO

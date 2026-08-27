@@ -12,6 +12,10 @@ import wishlistRoutes from './modules/wishlists/wishlist.routes';
 import promotionRoutes from './modules/promotions/promotion.routes';
 import bookingRoutes from './modules/bookings/booking.routes';
 import bookingRoomRoutes from './modules/bookingRooms/bookingRoom.routes';
+import paymentRoutes from './modules/payments/payment.routes';
+import payoutRoutes from './modules/payouts/payout.routes';
+
+
 
 const router = Router();
 
@@ -28,4 +32,8 @@ router.use('/api/wishlists',wishlistRoutes);
 router.use("/api/promotions", promotionRoutes)
 router.use('/api/bookings', bookingRoutes);
 router.use('/api/booking-rooms', bookingRoomRoutes);
+router.use('/api/payments', paymentRoutes);
+router.use('/api/payouts', payoutRoutes);
+
+
 export default router;

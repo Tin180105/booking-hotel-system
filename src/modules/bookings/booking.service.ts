@@ -39,34 +39,39 @@ export class BookingService {
     // =========================
     static async create(data: CreateBookingDTO) {
 
-        if (!data.hotel_id || data.hotel_id <= 0) {
-            throw new Error('Valid hotel_id is required');
-        }
-
-        if (!data.customer_id || data.customer_id <= 0) {
-            throw new Error('Valid customer_id is required');
-        }
-
-        if (!data.room_type_id || data.room_type_id <= 0) {
-            throw new Error('Valid room_type_id is required');
-        }
-
-        if (!data.quantity || data.quantity <= 0) {
-            throw new Error('Quantity must be greater than 0');
-        }
-
-        if (!data.check_in || !data.check_out) {
-            throw new Error('Check-in and check-out are required');
-        }
-
-        if (Number.isNaN(Date.parse(String(data.check_in))) ||
-            Number.isNaN(Date.parse(String(data.check_out))) ||
-            new Date(data.check_out) <= new Date(data.check_in)) {
-            throw new Error('Check-out must be later than check-in');
-        }
-
-        return await BookingModel.create(data);
+    if (!data.hotel_id || data.hotel_id <= 0) {
+        throw new Error('Valid hotel_id is required');
     }
+
+    if (!data.customer_id || data.customer_id <= 0) {
+        throw new Error('Valid customer_id is required');
+    }
+
+    if (!data.room_type_id || data.room_type_id <= 0) {
+        throw new Error('Valid room_type_id is required');
+    }
+
+    if (!data.quantity || data.quantity <= 0) {
+        throw new Error('Quantity must be greater than 0');
+    }
+
+    if (!data.check_in || !data.check_out) {
+        throw new Error(
+            'Check-in and check-out are required'
+        );
+    }
+
+    if (
+        new Date(data.check_out) <=
+        new Date(data.check_in)
+    ) {
+        throw new Error(
+            'Check-out must be greater than check-in'
+        );
+    }
+
+    return await BookingModel.create(data);
+}
 
     // =========================
     // UPDATE
