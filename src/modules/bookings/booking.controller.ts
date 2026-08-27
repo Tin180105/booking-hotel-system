@@ -100,61 +100,87 @@ export class BookingController {
     // =========================
     // CREATE
     // =========================
-    static async create(
-        req: Request,
-        res: Response
-    ) {
-        try {
+    // =========================
+// CREATE
+// =========================
 
-            const booking =
-                await BookingService.create(req.body);
+static async create(
+    req: Request,
+    res: Response
+) {
+    try {
+        const booking =
+            await BookingService.create(req.body);
 
-            return res.status(201).json({
-                success: true,
-                message: 'Booking created successfully',
-                data: booking
-            });
+        return res.status(201).json({
+            success: true,
+            message: 'Booking created successfully',
+            data: booking
+        });
 
-        } catch (error: any) {
+    } catch (error: any) {
 
-            if (
-                error.message.includes('required') ||
-                error.message.includes('Valid') ||
-                error.message.includes('cannot') ||
-                error.message.includes('Invalid')
-            ) {
-                return res.status(400).json({
-                    success: false,
-                    message: error.message
-                });
-            }
-
-            // UNIQUE booking_code
-            if (
-                error.number === 2627 ||
-                error.number === 2601
-            ) {
-                return res.status(409).json({
-                    success: false,
-                    message: 'Booking code already exists'
-                });
-            }
-
-            // Foreign key
-            if (error.number === 547) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        'Hotel, customer or promotion does not exist'
-                });
-            }
-
-            return res.status(500).json({
+        // =========================
+        // TRIGGER BOOKING OVERLAP
+        // =========================
+        if (
+            error.number === 50000 &&
+            error.message?.includes('trùng')
+        ) {
+            return res.status(409).json({
                 success: false,
                 message: error.message
             });
         }
+
+        // =========================
+        // VALIDATION
+        // =========================
+        if (
+            error.message?.includes('required') ||
+            error.message?.includes('Valid') ||
+            error.message?.includes('cannot') ||
+            error.message?.includes('Invalid')
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        // =========================
+        // UNIQUE booking_code
+        // =========================
+        if (
+            error.number === 2627 ||
+            error.number === 2601
+        ) {
+            return res.status(409).json({
+                success: false,
+                message: 'Booking code already exists'
+            });
+        }
+
+        // =========================
+        // FOREIGN KEY
+        // =========================
+        if (error.number === 547) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Hotel, customer, room type or promotion does not exist'
+            });
+        }
+
+        // =========================
+        // OTHER ERROR
+        // =========================
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
+}
 
     // =========================
     // UPDATE
