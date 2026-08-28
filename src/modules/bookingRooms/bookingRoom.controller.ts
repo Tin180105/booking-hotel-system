@@ -280,4 +280,98 @@ export class BookingRoomController {
             });
         }
     }
+
+    // =========================
+    // CALCULATE STAY DAYS
+    // =========================
+    static async calculateStayDays(
+        req: Request,
+        res: Response
+    ) {
+        try {
+
+            const {
+                expected_check_in,
+                expected_check_out
+            } = req.body;
+
+            const stayDays =
+                await BookingRoomService.calculateStayDays(
+                    expected_check_in,
+                    expected_check_out
+                );
+
+            return res.status(200).json({
+                success: true,
+                stay_days: stayDays
+            });
+
+        } catch (error: any) {
+
+            if (
+                error.message.includes('Invalid') ||
+                error.message.includes('greater')
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
+        // =========================
+        // CALCULATE ROOM PRICE
+        // =========================
+    static async calculateRoomPrice(
+        req: Request,
+        res: Response
+    ) {
+        try {
+
+            const {
+                room_type_id,
+                expected_check_in,
+                expected_check_out,
+                quantity
+            } = req.body;
+
+            const totalRoomPrice =
+                await BookingRoomService.calculateRoomPrice(
+                    room_type_id,
+                    expected_check_in,
+                    expected_check_out,
+                    quantity
+                );
+
+            return res.status(200).json({
+                success: true,
+                total_room_price: totalRoomPrice
+            });
+
+        } catch (error: any) {
+
+            if (
+                error.message.includes('Valid') ||
+                error.message.includes('Quantity') ||
+                error.message.includes('Invalid') ||
+                error.message.includes('greater')
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
 }

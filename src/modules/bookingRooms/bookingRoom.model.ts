@@ -264,4 +264,80 @@ export class BookingRoomModel {
 
         return result.rowsAffected[0] > 0;
     }
+
+    // =========================
+    // CALCULATE STAY DAYS
+    // =========================
+    static async calculateStayDays(
+        checkIn: Date,
+        checkOut: Date
+    ): Promise<number> {
+
+        const pool = await getConnection();
+
+        const result = await pool.request()
+            .input(
+                'check_in',
+                sql.DateTime2,
+                checkIn
+            )
+            .input(
+                'check_out',
+                sql.DateTime2,
+                checkOut
+            )
+            .query(`
+                SELECT dbo.fn_CalculateStayDays(
+                    @check_in,
+                    @check_out
+                ) AS stay_days
+            `);
+
+        return result.recordset[0].stay_days;
+    }
+
+        // =========================
+    // CALCULATE ROOM PRICE
+    // =========================
+    static async calculateRoomPrice(
+        roomTypeId: number,
+        checkIn: Date,
+        checkOut: Date,
+        quantity: number
+    ): Promise<number> {
+
+        const pool = await getConnection();
+
+        const result = await pool.request()
+            .input(
+                'room_type_id',
+                sql.BigInt,
+                roomTypeId
+            )
+            .input(
+                'check_in',
+                sql.DateTime2,
+                checkIn
+            )
+            .input(
+                'check_out',
+                sql.DateTime2,
+                checkOut
+            )
+            .input(
+                'quantity',
+                sql.Int,
+                quantity
+            )
+            .query(`
+                SELECT dbo.fn_CalculateRoomPrice(
+                    @room_type_id,
+                    @check_in,
+                    @check_out,
+                    @quantity
+                ) AS total_room_price
+            `);
+
+        return result.recordset[0].total_room_price;
+    }
 }
