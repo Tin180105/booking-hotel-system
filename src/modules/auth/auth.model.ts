@@ -30,7 +30,7 @@ export class AuthModel {
 
     const result = await pool
       .request()
-      .input('email', sql.VarChar, email)
+      .input('email', sql.VarChar, email.trim().toLowerCase())
       .query(`
         SELECT
           u.id,
@@ -49,12 +49,43 @@ export class AuthModel {
         INNER JOIN roles r
           ON u.role_id = r.id
 
-        WHERE u.email = @email
+        WHERE LOWER(u.email) = LOWER(@email)
       `);
 
     return result.recordset[0] || null;
   }
 
+  static async updatePasswordHash(userId: number, passwordHash: string) {
+    const pool = await getConnection();
+
+    await pool
+      .request()
+      .input('user_id', sql.BigInt, userId)
+      .input('password_hash', sql.VarChar, passwordHash)
+      .query(`
+        UPDATE users
+        SET password_hash = @password_hash
+        WHERE id = @user_id
+      `);
+  }
+
+    static async findRoleByCode(roleCode: string) {
+    const pool = await getConnection();
+
+    const result = await pool
+      .request()
+      .input('role_code', sql.VarChar, roleCode)
+      .query(`
+        SELECT
+          id,
+          code,
+          name
+        FROM roles
+        WHERE LOWER(code) = LOWER(@role_code)
+      `);
+
+    return result.recordset[0] || null;
+  }
 
   // ========================================
   // CREATE USER

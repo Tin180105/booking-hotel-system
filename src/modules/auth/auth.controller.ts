@@ -3,25 +3,34 @@ import { AuthService } from './auth.service';
 
 export class AuthController {
   static async register(req: Request, res: Response) {
-    try {
-      const { full_name, email, password, hotel_id, phone } = req.body;
-      const roleId = Number(req.body.role_id ?? req.body.roleId);
-      const hotelId = hotel_id === null || hotel_id === undefined
-        ? null
-        : Number(hotel_id);
-      const user = await AuthService.register(
+  try {
+    const {
+      full_name,
+      email,
+      password,
+      phone
+    } = req.body;
+
+    const user =
+      await AuthService.registerCustomer(
         full_name,
         email,
         password,
-        roleId,
-        hotelId,
         phone
       );
-      res.status(201).json({ status: 'success', data: user });
-    } catch (err: any) {
-      res.status(400).json({ status: 'error', message: err.message });
-    }
+
+    res.status(201).json({
+      status: 'success',
+      data: user
+    });
+
+  } catch (err: any) {
+    res.status(400).json({
+      status: 'error',
+      message: err.message
+    });
   }
+}
 
   static async login(req: Request, res: Response) {
     try {
@@ -35,9 +44,20 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
+      console.log('[AuthController.login] success', {
+        userId: user.id,
+        email: user.email,
+        role_code: user.role_code,
+      });
+
       res.json({ status: 'success', data: { user, accessToken } });
     } catch (err: any) {
-      res.status(401).json({ status: 'error', message: err.message });
+      console.error('[AuthController.login] failed', {
+        email: req.body?.email,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      res.status(401).json({ status: 'error', message: err.message || 'Đăng nhập thất bại' });
     }
   }
 

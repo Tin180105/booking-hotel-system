@@ -35,12 +35,92 @@ export class AuthService {
     });
   }
 
-  static async login(email: string, password: string) {
-    const user = await AuthModel.findUserByEmail(email);
-    if (!user || user.status !== 'ACTIVE') throw new Error('Email hoặc mật khẩu không đúng');
+  // ========================================
+// REGISTER CUSTOMER
+// ========================================
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) throw new Error('Email hoặc mật khẩu không đúng');
+static async registerCustomer(
+  fullName: string,
+  email: string,
+  password: string,
+  phone: string | null = null
+) {
+  // Kiểm tra email
+  const existingUser = await AuthModel.findUserByEmail(email);
+
+  if (existingUser) {
+    throw new Error('Email đã được sử dụng');
+  }
+
+  // Lấy role CUSTOMER
+  const customerRole =
+    await AuthModel.findRoleByCode('customer');
+
+  if (!customerRole) {
+    throw new Error('Không tìm thấy role customer');
+  }
+
+  // Mã hóa mật khẩu
+  const salt = await bcrypt.genSalt(10);
+
+  const passwordHash =
+    await bcrypt.hash(password, salt);
+
+  // Tạo customer
+  return await AuthModel.createUser({
+    full_name: fullName,
+    email,
+    password_hash: passwordHash,
+    role_id: customerRole.id,
+    hotel_id: null,
+    phone
+  });
+}
+
+  static async login(email: string, password: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    console.log('[AuthService.login] start', {
+      email: normalizedEmail,
+      passwordLength: password.length,
+    });
+
+    const user = await AuthModel.findUserByEmail(normalizedEmail);
+    console.log('[AuthService.login] user lookup', user ? {
+      id: user.id,
+      email: user.email,
+      status: user.status,
+      role_code: user.role_code,
+      hasPasswordHash: Boolean(user.password_hash),
+    } : null);
+
+    if (!user || user.status !== 'ACTIVE') {
+      console.error('[AuthService.login] user not found or inactive', { email: normalizedEmail, user: user ? { id: user.id, status: user.status } : null });
+      throw new Error('Email hoặc mật khẩu không đúng');
+    }
+
+    const passwordHash = String(user.password_hash ?? '');
+    const isLegacyPlaintext = passwordHash && passwordHash === password;
+    const isMatch = isLegacyPlaintext || await bcrypt.compare(password, passwordHash);
+
+    console.log('[AuthService.login] password check', {
+      isLegacyPlaintext,
+      passwordHashStartsWithBcrypt: passwordHash.startsWith('$2'),
+      isMatch,
+    });
+
+    if (!isMatch) {
+      console.error('[AuthService.login] password mismatch', {
+        email: normalizedEmail,
+        passwordHashPreview: passwordHash.slice(0, 20),
+      });
+      throw new Error('Email hoặc mật khẩu không đúng');
+    }
+
+    if (isLegacyPlaintext) {
+      const newHash = await bcrypt.hash(password, await bcrypt.genSalt(10));
+      await AuthModel.updatePasswordHash(user.id, newHash);
+      console.log('[AuthService.login] migrated legacy plaintext password to bcrypt hash', { userId: user.id });
+    }
 
     const roleCode = String(user.role_code || '').toUpperCase();
     const { accessToken, refreshToken } = generateTokens({
@@ -53,7 +133,7 @@ export class AuthService {
     await AuthModel.saveRefreshToken(user.id, refreshToken, expiresAt);
 
     return {
-      user: { id: user.id, full_name: user.full_name, email: user.email, role_id: user.role_id },
+      user: { id: user.id, full_name: user.full_name, email: user.email, role_id: user.role_id, role_code: user.role_code },
       accessToken,
       refreshToken,
     };
