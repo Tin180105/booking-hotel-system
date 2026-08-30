@@ -356,4 +356,44 @@ export class AuthModel {
         WHERE token = @token
       `);
   }
+
+    // ========================================
+  // FIND ALL USERS (ADMIN)
+  // ========================================
+
+  static async findAllUsers(roleCode?: string) {
+
+    const pool = await getConnection();
+
+    const request = pool.request();
+
+    let query = `
+      SELECT
+        u.id,
+        u.role_id,
+        u.hotel_id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.status,
+        u.created_at,
+        r.code AS role_code,
+        r.name AS role_name,
+        h.name AS hotel_name
+      FROM users u
+      INNER JOIN roles r ON u.role_id = r.id
+      LEFT JOIN hotels h ON u.hotel_id = h.id
+    `;
+
+    if (roleCode) {
+      query += ` WHERE r.code = @role_code`;
+      request.input('role_code', sql.VarChar, roleCode);
+    }
+
+    query += ` ORDER BY u.created_at DESC`;
+
+    const result = await request.query(query);
+
+    return result.recordset;
+  }
 }

@@ -105,4 +105,14 @@ export class AuthController {
       res.status(400).json({ status: 'error', message: err.message });
     }
   }
+
+  static async listUsers(req: Request, res: Response) {
+    try {
+      const roleCode = req.query.role ? String(req.query.role) : undefined;
+      const users = await AuthService.listUsers(roleCode);
+      res.json({ status: 'success', data: users });
+    } catch (err: any) {
+      res.status(500).json({ status: 'error', message: err.message });
+    }
+  }
 }

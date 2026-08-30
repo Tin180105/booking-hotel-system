@@ -214,4 +214,8 @@ static async registerCustomer(
   static async logout(token: string) {
     await AuthModel.revokeRefreshToken(token);
   }
+  
+    static async listUsers(roleCode?: string) {
+    return await AuthModel.findAllUsers(roleCode);
+  }
 }

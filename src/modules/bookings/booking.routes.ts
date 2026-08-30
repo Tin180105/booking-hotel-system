@@ -1,18 +1,14 @@
 import { Router } from 'express';
 import { BookingController } from './booking.controller';
-
+import {authenticateJWT as auth,role} from'../../middlewares/auth.middleware';
 const router = Router();
 
-router.get('/overview', BookingController.getOverview);
+router.get('/',auth,role('admin'),BookingController.getAll);
 
-router.get('/', BookingController.getAll);
+router.get('/hotel/:hotelId',auth,role('admin', 'hotel'),BookingController.getByHotelId);
 
-router.get('/:id', BookingController.getById);
+router.get('/:id',auth,role('admin', 'hotel'),BookingController.getById);
 
-router.post('/', BookingController.create);
-
-router.put('/:id', BookingController.update);
-
-router.delete('/:id', BookingController.delete);
+router.patch( '/:id/status',auth,role('admin', 'hotel'),BookingController.updateStatus);
 
 export default router;
