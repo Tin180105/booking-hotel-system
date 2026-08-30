@@ -7,27 +7,18 @@ import {
 
 const router = Router();
 
-// Customer tự đăng ký
-router.post('/register', AuthController.register);
+router.post('/register', auth, role('admin', 'hotel', 'customer'), AuthController.register);
 
-// Đăng nhập
 router.post('/login', AuthController.login);
 
-// Refresh token
 router.post('/refresh-token', AuthController.refreshToken);
 
-// Logout
 router.post('/logout', AuthController.logout);
 
-// Update user
-router.patch('/users/:id', AuthController.updateUser);
+router.get('/users', auth, role('admin'), AuthController.listUsers);
 
-// Chỉ admin được xóa user
-router.delete(
-  '/users/:id',
-  auth,
-  role('admin'),
-  AuthController.deleteUser
-);
+router.patch('/users/:id', auth, role('admin'), AuthController.updateUser);
+
+router.delete('/users/:id', auth, role('admin'), AuthController.deleteUser);
 
 export default router;

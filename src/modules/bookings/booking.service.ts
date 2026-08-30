@@ -4,79 +4,97 @@ import {
     UpdateBookingDTO
 } from './booking.model';
 
-export class BookingService {
+const ALLOWED_STATUS = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'];
+
+export const BookingService = {
 
     // =========================
     // GET ALL
     // =========================
-    static async getAll() {
+    async getAll() {
         return await BookingModel.getAll();
-    }
+    },
 
     // =========================
     // GET OVERVIEW
     // =========================
-    static async getOverview() {
+    async getOverview() {
         return await BookingModel.getOverview();
-    }
+    },
+
+    // =========================
+    // GET BY HOTEL
+    // =========================
+    async getByHotelId(hotelId: number) {
+
+        if (!Number.isInteger(hotelId) || hotelId <= 0) {
+            throw new Error('Hotel ID không hợp lệ');
+        }
+
+        return await BookingModel.getByHotelId(hotelId);
+    },
 
     // =========================
     // GET BY ID
     // =========================
-    static async getById(id: number) {
+    async getById(id: number) {
+
+        if (!Number.isInteger(id) || id <= 0) {
+            throw new Error('Booking ID không hợp lệ');
+        }
 
         const booking = await BookingModel.getById(id);
 
         if (!booking) {
-            throw new Error('Booking not found');
+            throw new Error('Không tìm thấy booking');
         }
 
         return booking;
-    }
+    },
 
     // =========================
     // CREATE
     // =========================
-    static async create(data: CreateBookingDTO) {
+    async create(data: CreateBookingDTO) {
 
-    if (!data.hotel_id || data.hotel_id <= 0) {
-        throw new Error('Valid hotel_id is required');
-    }
+        if (!data.hotel_id || data.hotel_id <= 0) {
+            throw new Error('Valid hotel_id is required');
+        }
 
-    if (!data.customer_id || data.customer_id <= 0) {
-        throw new Error('Valid customer_id is required');
-    }
+        if (!data.customer_id || data.customer_id <= 0) {
+            throw new Error('Valid customer_id is required');
+        }
 
-    if (!data.room_type_id || data.room_type_id <= 0) {
-        throw new Error('Valid room_type_id is required');
-    }
+        if (!data.room_type_id || data.room_type_id <= 0) {
+            throw new Error('Valid room_type_id is required');
+        }
 
-    if (!data.quantity || data.quantity <= 0) {
-        throw new Error('Quantity must be greater than 0');
-    }
+        if (!data.quantity || data.quantity <= 0) {
+            throw new Error('Quantity must be greater than 0');
+        }
 
-    if (!data.check_in || !data.check_out) {
-        throw new Error(
-            'Check-in and check-out are required'
-        );
-    }
+        if (!data.check_in || !data.check_out) {
+            throw new Error(
+                'Check-in and check-out are required'
+            );
+        }
 
-    if (
-        new Date(data.check_out) <=
-        new Date(data.check_in)
-    ) {
-        throw new Error(
-            'Check-out must be greater than check-in'
-        );
-    }
+        if (
+            new Date(data.check_out) <=
+            new Date(data.check_in)
+        ) {
+            throw new Error(
+                'Check-out must be greater than check-in'
+            );
+        }
 
-    return await BookingModel.create(data);
-}
+        return await BookingModel.create(data);
+    },
 
     // =========================
-    // UPDATE
+    // UPDATE (sửa toàn bộ)
     // =========================
-    static async update(
+    async update(
         id: number,
         data: UpdateBookingDTO
     ) {
@@ -121,14 +139,7 @@ export class BookingService {
 
         const status = data.status.toUpperCase();
 
-        const allowedStatuses = [
-            'PENDING',
-            'CONFIRMED',
-            'CANCELLED',
-            'COMPLETED'
-        ];
-
-        if (!allowedStatuses.includes(status)) {
+        if (!ALLOWED_STATUS.includes(status)) {
             throw new Error(
                 'Invalid booking status'
             );
@@ -141,12 +152,36 @@ export class BookingService {
                 .toUpperCase(),
             status
         });
-    }
+    },
+
+    // =========================
+    // UPDATE STATUS (chỉ đổi trạng thái)
+    // =========================
+    async updateStatus(id: number, status: string) {
+
+        if (!Number.isInteger(id) || id <= 0) {
+            throw new Error('Booking ID không hợp lệ');
+        }
+
+        if (!ALLOWED_STATUS.includes(status)) {
+            throw new Error(
+                `Trạng thái không hợp lệ. Cho phép: ${ALLOWED_STATUS.join(', ')}`
+            );
+        }
+
+        const existing = await BookingModel.getById(id);
+
+        if (!existing) {
+            throw new Error('Không tìm thấy booking');
+        }
+
+        return await BookingModel.updateStatus(id, status);
+    },
 
     // =========================
     // DELETE
     // =========================
-    static async delete(id: number) {
+    async delete(id: number) {
 
         const existingBooking =
             await BookingModel.getById(id);
@@ -157,4 +192,6 @@ export class BookingService {
 
         return await BookingModel.delete(id);
     }
-}
+};
+
+export { ALLOWED_STATUS };

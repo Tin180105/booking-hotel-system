@@ -51,94 +51,185 @@ export interface UpdateBookingDTO {
     final_amount: number;
 }
 
-export class BookingModel {
+export const BookingModel = {
 
-    // =========================
-    // GET ALL
-    // =========================
-    static async getAll(): Promise<Booking[]> {
+    // ========================================
+    // GET ALL BOOKINGS (kèm tên hotel/customer)
+    // ========================================
+
+    async getAll() {
+
         const pool = await getConnection();
 
         const result = await pool.request().query(`
             SELECT
-                id,
-                hotel_id,
-                customer_id,
-                promotion_id,
-                booking_code,
-                status,
-                total_amount,
-                commission_amount,
-                final_amount,
-                created_at,
-                updated_at
-            FROM bookings
-            ORDER BY id DESC
+                b.id,
+                b.booking_code,
+                b.status,
+                b.total_amount,
+                b.commission_amount,
+                b.final_amount,
+                b.created_at,
+                h.id AS hotel_id,
+                h.name AS hotel_name,
+                c.id AS customer_id,
+                c.full_name AS customer_name,
+                c.email AS customer_email,
+                c.phone AS customer_phone
+            FROM bookings b
+            INNER JOIN hotels h ON b.hotel_id = h.id
+            INNER JOIN customers c ON b.customer_id = c.id
+            ORDER BY b.created_at DESC
         `);
 
         return result.recordset;
-    }
+    },
 
-    // =========================
-    // GET BY ID
-    // =========================
-    static async getById(id: number): Promise<Booking | null> {
+
+    // ========================================
+    // GET OVERVIEW (từ VIEW vw_BookingOverview)
+    // ========================================
+
+    async getOverview(): Promise<any[]> {
+        const pool = await getConnection();
+
+        const result = await pool.request().query(`
+            SELECT * FROM vw_BookingOverview
+            ORDER BY booking_created_at DESC
+        `);
+
+        return result.recordset;
+    },
+
+
+    // ========================================
+    // GET BOOKINGS BY HOTEL (dùng cho role hotel)
+    // ========================================
+
+    async getByHotelId(hotelId: number) {
+
         const pool = await getConnection();
 
         const result = await pool.request()
+            .input('hotel_id', sql.BigInt, hotelId)
+            .query(`
+                SELECT
+                    b.id,
+                    b.booking_code,
+                    b.status,
+                    b.total_amount,
+                    b.commission_amount,
+                    b.final_amount,
+                    b.created_at,
+                    c.id AS customer_id,
+                    c.full_name AS customer_name,
+                    c.email AS customer_email,
+                    c.phone AS customer_phone
+                FROM bookings b
+                INNER JOIN customers c ON b.customer_id = c.id
+                WHERE b.hotel_id = @hotel_id
+                ORDER BY b.created_at DESC
+            `);
+
+        return result.recordset;
+    },
+
+
+    // ========================================
+    // GET BY ID (kèm chi tiết phòng đã đặt)
+    // ========================================
+
+    async getById(id: number) {
+
+        const pool = await getConnection();
+
+        const bookingResult = await pool.request()
             .input('id', sql.BigInt, id)
             .query(`
                 SELECT
-                    id,
-                    hotel_id,
-                    customer_id,
-                    promotion_id,
-                    booking_code,
-                    status,
-                    total_amount,
-                    commission_amount,
-                    final_amount,
-                    created_at,
-                    updated_at
-                FROM bookings
-                WHERE id = @id
+                    b.id,
+                    b.booking_code,
+                    b.status,
+                    b.total_amount,
+                    b.commission_amount,
+                    b.final_amount,
+                    b.created_at,
+                    b.updated_at,
+                    h.id AS hotel_id,
+                    h.name AS hotel_name,
+                    c.id AS customer_id,
+                    c.full_name AS customer_name,
+                    c.email AS customer_email,
+                    c.phone AS customer_phone
+                FROM bookings b
+                INNER JOIN hotels h ON b.hotel_id = h.id
+                INNER JOIN customers c ON b.customer_id = c.id
+                WHERE b.id = @id
             `);
 
-        return result.recordset.length > 0
-            ? result.recordset[0]
-            : null;
-    }
+        const booking = bookingResult.recordset[0];
 
-    // =========================
-    // CREATE
-    // =========================
-    static async create(
-    data: CreateBookingDTO
-): Promise<CreateBookingResult> {
+        if (!booking) {
+            return null;
+        }
 
-    const pool = await getConnection();
+        const roomsResult = await pool.request()
+            .input('booking_id', sql.BigInt, id)
+            .query(`
+                SELECT
+                    br.id,
+                    br.room_type_id,
+                    rt.name AS room_type_name,
+                    br.quantity,
+                    br.total_room_price,
+                    br.expected_check_in,
+                    br.expected_check_out
+                FROM booking_rooms br
+                INNER JOIN room_types rt ON br.room_type_id = rt.id
+                WHERE br.booking_id = @booking_id
+            `);
 
-    const result = await pool.request()
-        .input('HotelId', sql.BigInt, data.hotel_id)
-        .input('CustomerId', sql.BigInt, data.customer_id)
-        .input('RoomTypeId', sql.BigInt, data.room_type_id)
-        .input('Quantity', sql.Int, data.quantity)
-        .input('CheckIn', sql.DateTime2, data.check_in)
-        .input('CheckOut', sql.DateTime2, data.check_out)
-        .input(
-            'PromotionId',
-            sql.BigInt,
-            data.promotion_id ?? null
-        )
-        .execute('dbo.sp_CreateBooking');
+        return {
+            ...booking,
+            rooms: roomsResult.recordset
+        };
+    },
 
-    return result.recordset[0];
-}
 
-    // =========================
-    // UPDATE
-    // =========================
-    static async update(
+    // ========================================
+    // CREATE (gọi sp_CreateBooking — tự tính giá,
+    // áp price_rule, promotion, trigger check overlap)
+    // ========================================
+
+    async create(
+        data: CreateBookingDTO
+    ): Promise<CreateBookingResult> {
+
+        const pool = await getConnection();
+
+        const result = await pool.request()
+            .input('HotelId', sql.BigInt, data.hotel_id)
+            .input('CustomerId', sql.BigInt, data.customer_id)
+            .input('RoomTypeId', sql.BigInt, data.room_type_id)
+            .input('Quantity', sql.Int, data.quantity)
+            .input('CheckIn', sql.DateTime2, data.check_in)
+            .input('CheckOut', sql.DateTime2, data.check_out)
+            .input(
+                'PromotionId',
+                sql.BigInt,
+                data.promotion_id ?? null
+            )
+            .execute('dbo.sp_CreateBooking');
+
+        return result.recordset[0];
+    },
+
+
+    // ========================================
+    // UPDATE (sửa toàn bộ thông tin booking)
+    // ========================================
+
+    async update(
         id: number,
         data: UpdateBookingDTO
     ): Promise<Booking | null> {
@@ -209,12 +300,41 @@ export class BookingModel {
         return result.recordset.length > 0
             ? result.recordset[0]
             : null;
-    }
+    },
 
-    // =========================
+
+    // ========================================
+    // UPDATE STATUS (chỉ đổi trạng thái — nhanh gọn)
+    // ========================================
+
+    async updateStatus(id: number, status: string) {
+
+        const pool = await getConnection();
+
+        const result = await pool.request()
+            .input('id', sql.BigInt, id)
+            .input('status', sql.VarChar, status)
+            .query(`
+                UPDATE bookings
+                SET
+                    status = @status,
+                    updated_at = GETDATE()
+                OUTPUT
+                    INSERTED.id,
+                    INSERTED.status,
+                    INSERTED.updated_at
+                WHERE id = @id
+            `);
+
+        return result.recordset[0] || null;
+    },
+
+
+    // ========================================
     // DELETE
-    // =========================
-    static async delete(id: number): Promise<boolean> {
+    // ========================================
+
+    async delete(id: number): Promise<boolean> {
 
         const pool = await getConnection();
 
@@ -227,18 +347,4 @@ export class BookingModel {
 
         return result.rowsAffected[0] > 0;
     }
-
-    // =========================
-    // GET OVERVIEW
-    // =========================
-    static async getOverview(): Promise<any[]> {
-        const pool = await getConnection();
-
-        const result = await pool.request().query(`
-            SELECT * FROM vw_BookingOverview
-            ORDER BY booking_created_at DESC
-        `);
-
-        return result.recordset;
-    }
-}
+};

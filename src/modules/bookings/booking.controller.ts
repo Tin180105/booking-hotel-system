@@ -1,23 +1,20 @@
 import { Request, Response } from 'express';
 import { BookingService } from './booking.service';
 
-export class BookingController {
+export const BookingController = {
 
     // =========================
     // GET ALL
     // =========================
-    static async getAll(
-        req: Request,
-        res: Response
-    ) {
+    async getAll(req: Request, res: Response) {
+
         try {
 
-            const bookings =
-                await BookingService.getAll();
+            const data = await BookingService.getAll();
 
             return res.status(200).json({
                 success: true,
-                data: bookings
+                data
             });
 
         } catch (error: any) {
@@ -27,23 +24,21 @@ export class BookingController {
                 message: error.message
             });
         }
-    }
+    },
+
 
     // =========================
     // GET OVERVIEW
     // =========================
-    static async getOverview(
-        req: Request,
-        res: Response
-    ) {
+    async getOverview(req: Request, res: Response) {
+
         try {
 
-            const overview =
-                await BookingService.getOverview();
+            const data = await BookingService.getOverview();
 
             return res.status(200).json({
                 success: true,
-                data: overview
+                data
             });
 
         } catch (error: any) {
@@ -53,15 +48,40 @@ export class BookingController {
                 message: error.message
             });
         }
-    }
+    },
+
+
+    // =========================
+    // GET BY HOTEL
+    // =========================
+    async getByHotelId(req: Request, res: Response) {
+
+        try {
+
+            const hotelId = Number(req.params.hotelId);
+
+            const data = await BookingService.getByHotelId(hotelId);
+
+            return res.status(200).json({
+                success: true,
+                data
+            });
+
+        } catch (error: any) {
+
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    },
+
 
     // =========================
     // GET BY ID
     // =========================
-    static async getById(
-        req: Request,
-        res: Response
-    ) {
+    async getById(req: Request, res: Response) {
+
         try {
 
             const id = Number(req.params.id);
@@ -73,17 +93,16 @@ export class BookingController {
                 });
             }
 
-            const booking =
-                await BookingService.getById(id);
+            const data = await BookingService.getById(id);
 
             return res.status(200).json({
                 success: true,
-                data: booking
+                data
             });
 
         } catch (error: any) {
 
-            if (error.message === 'Booking not found') {
+            if (error.message === 'Booking not found' || error.message === 'Không tìm thấy booking') {
                 return res.status(404).json({
                     success: false,
                     message: error.message
@@ -95,100 +114,82 @@ export class BookingController {
                 message: error.message
             });
         }
-    }
+    },
+
 
     // =========================
     // CREATE
     // =========================
-    // =========================
-// CREATE
-// =========================
+    async create(req: Request, res: Response) {
 
-static async create(
-    req: Request,
-    res: Response
-) {
-    try {
-        const booking =
-            await BookingService.create(req.body);
+        try {
+            const booking = await BookingService.create(req.body);
 
-        return res.status(201).json({
-            success: true,
-            message: 'Booking created successfully',
-            data: booking
-        });
+            return res.status(201).json({
+                success: true,
+                message: 'Booking created successfully',
+                data: booking
+            });
 
-    } catch (error: any) {
+        } catch (error: any) {
 
-        // =========================
-        // TRIGGER BOOKING OVERLAP
-        // =========================
-        if (
-            error.number === 50000 &&
-            error.message?.includes('trùng')
-        ) {
-            return res.status(409).json({
+            // TRIGGER BOOKING OVERLAP
+            if (
+                error.number === 50000 &&
+                error.message?.includes('trùng')
+            ) {
+                return res.status(409).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            // VALIDATION
+            if (
+                error.message?.includes('required') ||
+                error.message?.includes('Valid') ||
+                error.message?.includes('cannot') ||
+                error.message?.includes('Invalid')
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+
+            // UNIQUE booking_code
+            if (
+                error.number === 2627 ||
+                error.number === 2601
+            ) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Booking code already exists'
+                });
+            }
+
+            // FOREIGN KEY
+            if (error.number === 547) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        'Hotel, customer, room type or promotion does not exist'
+                });
+            }
+
+            return res.status(500).json({
                 success: false,
                 message: error.message
             });
         }
+    },
 
-        // =========================
-        // VALIDATION
-        // =========================
-        if (
-            error.message?.includes('required') ||
-            error.message?.includes('Valid') ||
-            error.message?.includes('cannot') ||
-            error.message?.includes('Invalid')
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: error.message
-            });
-        }
-
-        // =========================
-        // UNIQUE booking_code
-        // =========================
-        if (
-            error.number === 2627 ||
-            error.number === 2601
-        ) {
-            return res.status(409).json({
-                success: false,
-                message: 'Booking code already exists'
-            });
-        }
-
-        // =========================
-        // FOREIGN KEY
-        // =========================
-        if (error.number === 547) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    'Hotel, customer, room type or promotion does not exist'
-            });
-        }
-
-        // =========================
-        // OTHER ERROR
-        // =========================
-        return res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-}
 
     // =========================
     // UPDATE
     // =========================
-    static async update(
-        req: Request,
-        res: Response
-    ) {
+    async update(req: Request, res: Response) {
+
         try {
 
             const id = Number(req.params.id);
@@ -200,11 +201,7 @@ static async create(
                 });
             }
 
-            const booking =
-                await BookingService.update(
-                    id,
-                    req.body
-                );
+            const booking = await BookingService.update(id, req.body);
 
             return res.status(200).json({
                 success: true,
@@ -256,15 +253,42 @@ static async create(
                 message: error.message
             });
         }
-    }
+    },
+
+
+    // =========================
+    // UPDATE STATUS
+    // =========================
+    async updateStatus(req: Request, res: Response) {
+
+        try {
+
+            const id = Number(req.params.id);
+            const { status } = req.body;
+
+            const data = await BookingService.updateStatus(id, status);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Cập nhật trạng thái booking thành công',
+                data
+            });
+
+        } catch (error: any) {
+
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    },
+
 
     // =========================
     // DELETE
     // =========================
-    static async delete(
-        req: Request,
-        res: Response
-    ) {
+    async delete(req: Request, res: Response) {
+
         try {
 
             const id = Number(req.params.id);
@@ -292,7 +316,6 @@ static async create(
                 });
             }
 
-            // Có thể xảy ra nếu booking đã có review
             if (error.number === 547) {
                 return res.status(409).json({
                     success: false,
@@ -307,4 +330,4 @@ static async create(
             });
         }
     }
-}
+};
