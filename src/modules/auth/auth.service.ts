@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { AuthModel } from './auth.model';
 import { generateTokens, verifyRefreshToken } from '../../utils/jwt';
+import { CustomerModel } from '../customers/customer.model';
 
 export class AuthService {
   static async register(
@@ -35,109 +36,110 @@ export class AuthService {
     });
   }
 
-  // ========================================
-// REGISTER CUSTOMER
 // ========================================
+  // REGISTER CUSTOMER — giờ ghi thẳng vào bảng customers
+  // ========================================
 
-static async registerCustomer(
-  fullName: string,
-  email: string,
-  password: string,
-  phone: string | null = null
-) {
-  // Kiểm tra email
-  const existingUser = await AuthModel.findUserByEmail(email);
+  static async registerCustomer(
+    fullName: string,
+    email: string,
+    password: string,
+    phone: string | null = null
+  ) {
+    const existingCustomer = await CustomerModel.getByEmail(email);
 
-  if (existingUser) {
-    throw new Error('Email đã được sử dụng');
+    if (existingCustomer) {
+      throw new Error('Email đã được sử dụng');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    return await CustomerModel.create({
+      full_name: fullName,
+      phone: phone ?? '',
+      email,
+      password_hash: passwordHash
+    });
   }
 
-  // Lấy role CUSTOMER
-  const customerRole =
-    await AuthModel.findRoleByCode('customer');
-
-  if (!customerRole) {
-    throw new Error('Không tìm thấy role customer');
-  }
-
-  // Mã hóa mật khẩu
-  const salt = await bcrypt.genSalt(10);
-
-  const passwordHash =
-    await bcrypt.hash(password, salt);
-
-  // Tạo customer
-  return await AuthModel.createUser({
-    full_name: fullName,
-    email,
-    password_hash: passwordHash,
-    role_id: customerRole.id,
-    hotel_id: null,
-    phone
-  });
-}
+  // ========================================
+  // LOGIN — thử users trước, rồi tới customers
+  // ========================================
 
   static async login(email: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
-    console.log('[AuthService.login] start', {
-      email: normalizedEmail,
-      passwordLength: password.length,
-    });
 
     const user = await AuthModel.findUserByEmail(normalizedEmail);
-    console.log('[AuthService.login] user lookup', user ? {
-      id: user.id,
-      email: user.email,
-      status: user.status,
-      role_code: user.role_code,
-      hasPasswordHash: Boolean(user.password_hash),
-    } : null);
 
-    if (!user || user.status !== 'ACTIVE') {
-      console.error('[AuthService.login] user not found or inactive', { email: normalizedEmail, user: user ? { id: user.id, status: user.status } : null });
-      throw new Error('Email hoặc mật khẩu không đúng');
-    }
+    if (user) {
+      if (user.status !== 'ACTIVE') {
+        throw new Error('Tài khoản đã bị khóa');
+      }
 
-    const passwordHash = String(user.password_hash ?? '');
-    const isLegacyPlaintext = passwordHash && passwordHash === password;
-    const isMatch = isLegacyPlaintext || await bcrypt.compare(password, passwordHash);
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+      if (!isMatch) {
+        throw new Error('Email hoặc mật khẩu không đúng');
+      }
 
-    console.log('[AuthService.login] password check', {
-      isLegacyPlaintext,
-      passwordHashStartsWithBcrypt: passwordHash.startsWith('$2'),
-      isMatch,
-    });
-
-    if (!isMatch) {
-      console.error('[AuthService.login] password mismatch', {
-        email: normalizedEmail,
-        passwordHashPreview: passwordHash.slice(0, 20),
+      const roleCode = String(user.role_code || '').toUpperCase();
+      const { accessToken, refreshToken } = generateTokens({
+        userId: user.id,
+        roleId: user.role_id,
+        roleCode,
+        hotelId: user.hotel_id ?? null,
       });
+
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await AuthModel.saveRefreshToken('user', user.id, refreshToken, expiresAt);
+
+      return {
+        user: {
+          id: user.id,
+          full_name: user.full_name,
+          email: user.email,
+          role_id: user.role_id,
+          role_code: user.role_code,
+          hotel_id: user.hotel_id ?? null
+        },
+        accessToken,
+        refreshToken,
+      };
+    }
+
+    // Không phải admin/hotel -> thử customer
+    const customer = await CustomerModel.getByEmail(normalizedEmail);
+
+    if (!customer) {
       throw new Error('Email hoặc mật khẩu không đúng');
     }
 
-    if (isLegacyPlaintext) {
-      const newHash = await bcrypt.hash(password, await bcrypt.genSalt(10));
-      await AuthModel.updatePasswordHash(user.id, newHash);
-      console.log('[AuthService.login] migrated legacy plaintext password to bcrypt hash', { userId: user.id });
+    const isMatch = await bcrypt.compare(password, customer.password_hash);
+    if (!isMatch) {
+      throw new Error('Email hoặc mật khẩu không đúng');
     }
 
-    const roleCode = String(user.role_code || '').toUpperCase();
     const { accessToken, refreshToken } = generateTokens({
-      userId: user.id,
-      roleId: user.role_id,
-      roleCode,
-      hotelId: user.hotel_id ?? null,
+      userId: customer.id,
+      roleId: 0,
+      roleCode: 'CUSTOMER',
+      hotelId: null,
     });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await AuthModel.saveRefreshToken(user.id, refreshToken, expiresAt);
+    await AuthModel.saveRefreshToken('customer', customer.id, refreshToken, expiresAt);
 
     return {
-      user: { id: user.id, full_name: user.full_name, email: user.email, role_id: user.role_id, role_code: user.role_code },
+      user: {
+        id: customer.id,
+        full_name: customer.full_name,
+        email: customer.email,
+        role_id: 0,
+        role_code: 'CUSTOMER',
+        hotel_id: null
+      },
       accessToken,
       refreshToken,
-      hotel_id: user.hotel_id ?? null
     };
   }
 
@@ -146,6 +148,7 @@ static async registerCustomer(
     email?: string;
     phone?: string | null;
     hotel_id?: number | null;
+    role_code?: string;
     password?: string;
   }) {
     if (!Number.isInteger(userId) || userId <= 0) {
@@ -155,13 +158,6 @@ static async registerCustomer(
     const currentUser = await AuthModel.findUserById(userId);
     if (!currentUser) {
       throw new Error('Không tìm thấy tài khoản');
-    }
-
-    const hotelId = data.hotel_id !== undefined
-      ? data.hotel_id
-      : currentUser.hotel_id;
-    if (hotelId !== null && (!Number.isInteger(hotelId) || hotelId <= 0)) {
-      throw new Error('hotel_id phải là số nguyên dương');
     }
 
     const fullName = data.full_name ?? currentUser.full_name;
@@ -177,6 +173,27 @@ static async registerCustomer(
       }
     }
 
+    let roleId = currentUser.role_id;
+    let roleCode = String(currentUser.role_code || '').toLowerCase();
+
+    if (data.role_code) {
+      const role = await AuthModel.findRoleByCode(data.role_code);
+      if (!role || !['admin', 'hotel'].includes(String(role.code).toLowerCase())) {
+        throw new Error('Role không hợp lệ');
+      }
+      roleId = role.id;
+      roleCode = String(role.code).toLowerCase();
+    }
+
+    let hotelId: number | null = null;
+
+    if (roleCode === 'hotel') {
+      hotelId = data.hotel_id !== undefined ? data.hotel_id : currentUser.hotel_id;
+      if (!hotelId || !Number.isInteger(hotelId) || hotelId <= 0) {
+        throw new Error('Vui lòng chọn khách sạn cho tài khoản hotel');
+      }
+    }
+
     const passwordHash = data.password
       ? await bcrypt.hash(data.password, await bcrypt.genSalt(10))
       : currentUser.password_hash;
@@ -186,6 +203,7 @@ static async registerCustomer(
       email,
       phone: data.phone !== undefined ? data.phone : currentUser.phone,
       hotel_id: hotelId,
+      role_id: roleId,
       password_hash: passwordHash,
     });
   }
@@ -217,7 +235,11 @@ static async registerCustomer(
     await AuthModel.revokeRefreshToken(token);
   }
   
-    static async listUsers(roleCode?: string) {
+  static async listUsers(roleCode?: string) {
     return await AuthModel.findAllUsers(roleCode);
+  }
+
+  static async listRoles() {
+    return await AuthModel.findAllRolesForStaff();
   }
 }

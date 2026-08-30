@@ -115,4 +115,13 @@ export class AuthController {
       res.status(500).json({ status: 'error', message: err.message });
     }
   }
+  
+  static async listRoles(req: Request, res: Response) {
+  try {
+    const roles = await AuthService.listRoles();
+    res.json({ status: 'success', data: roles });
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+}
 }

@@ -12,7 +12,7 @@ router.get('/overview', auth, role('admin'), BookingController.getOverview);
 
 // ADMIN xem tất cả booking
 router.get('/', auth, role('admin'), BookingController.getAll);
-
+router.get('/customer/:customerId', auth, role('admin'), BookingController.getByCustomerId);
 // ADMIN hoặc HOTEL xem theo hotel
 router.get('/hotel/:hotelId', auth, role('admin', 'hotel'), BookingController.getByHotelId);
 

@@ -1,16 +1,12 @@
 import { Router } from 'express';
 import { CustomerController } from './customer.controller';
+import { authenticateJWT as auth, role } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
-// GET ALL
-router.get('/',CustomerController.getAll);
-// GET BY ID
-router.get('/:id',CustomerController.getById);
-// CREATE
-router.post('/',CustomerController.create);
-// UPDATE
-router.put('/:id',CustomerController.update);
-// DELETE
-router.delete('/:id',CustomerController.delete);
+router.get('/', auth, role('admin'), CustomerController.getAll);
+router.get('/:id', auth, role('admin'), CustomerController.getById);
+router.put('/:id', auth, role('admin'), CustomerController.update);
+router.delete('/:id', auth, role('admin'), CustomerController.delete);
+
 export default router;

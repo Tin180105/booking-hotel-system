@@ -329,5 +329,15 @@ export const BookingController = {
                 message: error.message
             });
         }
-    }
+    },
+
+    async getByCustomerId(req: Request, res: Response) {
+  try {
+    const customerId = Number(req.params.customerId);
+    const data = await BookingService.getByCustomerId(customerId);
+    return res.status(200).json({ success: true, data });
+  } catch (error: any) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
 };

@@ -346,5 +346,27 @@ export const BookingModel = {
             `);
 
         return result.rowsAffected[0] > 0;
-    }
+    },
+
+    async getByCustomerId(customerId: number) {
+  const pool = await getConnection();
+
+  const result = await pool.request()
+    .input('customer_id', sql.BigInt, customerId)
+    .query(`
+      SELECT DISTINCT
+        h.id AS hotel_id,
+        h.name AS hotel_name,
+        h.city,
+        b.id AS booking_id,
+        b.booking_code,
+        b.status
+      FROM bookings b
+      INNER JOIN hotels h ON b.hotel_id = h.id
+      WHERE b.customer_id = @customer_id
+      ORDER BY h.name
+    `);
+
+  return result.recordset;
+}
 };

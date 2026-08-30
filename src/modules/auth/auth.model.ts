@@ -15,6 +15,7 @@ export interface UserUpdateDTO {
   email: string;
   phone?: string | null;
   hotel_id?: number | null;
+  role_id: number;
   password_hash: string;
 }
 
@@ -199,38 +200,40 @@ export class AuthModel {
   }
 
   static async updateUser(userId: number, data: UserUpdateDTO) {
-    const pool = await getConnection();
+  const pool = await getConnection();
 
-    const result = await pool
-      .request()
-      .input('user_id', sql.BigInt, userId)
-      .input('full_name', sql.NVarChar, data.full_name)
-      .input('email', sql.VarChar, data.email)
-      .input('phone', sql.VarChar, data.phone ?? null)
-      .input('hotel_id', sql.BigInt, data.hotel_id ?? null)
-      .input('password_hash', sql.VarChar, data.password_hash)
-      .query(`
-        UPDATE u
-        SET
-          hotel_id = @hotel_id,
-          full_name = @full_name,
-          email = @email,
-          phone = @phone,
-          password_hash = @password_hash
-        OUTPUT
-          INSERTED.id,
-          INSERTED.role_id,
-          INSERTED.hotel_id,
-          INSERTED.full_name,
-          INSERTED.email,
-          INSERTED.phone,
-          INSERTED.status
-        FROM users u
-        WHERE u.id = @user_id
-      `);
+  const result = await pool
+    .request()
+    .input('user_id', sql.BigInt, userId)
+    .input('role_id', sql.BigInt, data.role_id)
+    .input('hotel_id', sql.BigInt, data.hotel_id ?? null)
+    .input('full_name', sql.NVarChar, data.full_name)
+    .input('email', sql.VarChar, data.email)
+    .input('phone', sql.VarChar, data.phone ?? null)
+    .input('password_hash', sql.VarChar, data.password_hash)
+    .query(`
+      UPDATE u
+      SET
+        role_id = @role_id,
+        hotel_id = @hotel_id,
+        full_name = @full_name,
+        email = @email,
+        phone = @phone,
+        password_hash = @password_hash
+      OUTPUT
+        INSERTED.id,
+        INSERTED.role_id,
+        INSERTED.hotel_id,
+        INSERTED.full_name,
+        INSERTED.email,
+        INSERTED.phone,
+        INSERTED.status
+      FROM users u
+      WHERE u.id = @user_id
+    `);
 
-    return result.recordset[0] || null;
-  }
+  return result.recordset[0] || null;
+}
 
   static async deleteUser(userId: number) {
     const pool = await getConnection();
@@ -254,50 +257,31 @@ export class AuthModel {
   // ========================================
 
   static async saveRefreshToken(
-    userId: number,
-    token: string,
-    expiresAt: Date
-  ) {
+  ownerType: 'user' | 'customer',
+  ownerId: number,
+  token: string,
+  expiresAt: Date
+) {
+  const pool = await getConnection();
 
-    const pool = await getConnection();
+  const request = pool.request()
+    .input('token', sql.VarChar, token)
+    .input('expires_at', sql.DateTime2, expiresAt);
 
-    await pool
-      .request()
-
-      .input(
-        'user_id',
-        sql.BigInt,
-        userId
-      )
-
-      .input(
-        'token',
-        sql.VarChar,
-        token
-      )
-
-      .input(
-        'expires_at',
-        sql.DateTime2,
-        expiresAt
-      )
-
-      .query(`
-        INSERT INTO refresh_tokens
-        (
-          user_id,
-          token,
-          expires_at
-        )
-
-        VALUES
-        (
-          @user_id,
-          @token,
-          @expires_at
-        )
-      `);
+  if (ownerType === 'user') {
+    request.input('user_id', sql.BigInt, ownerId);
+    await request.query(`
+      INSERT INTO refresh_tokens (user_id, customer_id, token, expires_at)
+      VALUES (@user_id, NULL, @token, @expires_at)
+    `);
+  } else {
+    request.input('customer_id', sql.BigInt, ownerId);
+    await request.query(`
+      INSERT INTO refresh_tokens (user_id, customer_id, token, expires_at)
+      VALUES (NULL, @customer_id, @token, @expires_at)
+    `);
   }
+}
 
 
   // ========================================
@@ -396,4 +380,15 @@ export class AuthModel {
 
     return result.recordset;
   }
+
+  static async findAllRolesForStaff() {
+  const pool = await getConnection();
+  const result = await pool.request().query(`
+    SELECT id, name, code
+    FROM roles
+    WHERE LOWER(code) IN ('admin', 'hotel')
+    ORDER BY id
+  `);
+  return result.recordset;
+}
 }

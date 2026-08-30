@@ -191,7 +191,14 @@ export const BookingService = {
         }
 
         return await BookingModel.delete(id);
-    }
+    },
+
+    async getByCustomerId(customerId: number) {
+  if (!Number.isInteger(customerId) || customerId <= 0) {
+    throw new Error('Customer ID không hợp lệ');
+  }
+  return await BookingModel.getByCustomerId(customerId);
+}
 };
 
 export { ALLOWED_STATUS };

@@ -20,5 +20,5 @@ router.get('/users', auth, role('admin'), AuthController.listUsers);
 router.patch('/users/:id', auth, role('admin'), AuthController.updateUser);
 
 router.delete('/users/:id', auth, role('admin'), AuthController.deleteUser);
-
+router.get('/roles', auth, role('admin'), AuthController.listRoles);
 export default router;
