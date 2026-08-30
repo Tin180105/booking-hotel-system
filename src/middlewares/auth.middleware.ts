@@ -11,6 +11,7 @@ export interface AuthRequest extends Request {
     userId: number;
     roleId: number;
     roleCode: string;
+    hotelId?: number | null;
   };
 }
 

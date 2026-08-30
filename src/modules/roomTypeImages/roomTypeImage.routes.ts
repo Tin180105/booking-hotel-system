@@ -2,65 +2,53 @@ import { Router } from 'express';
 
 import {
     authenticateJWT as auth,
-    role
+    role,
+    AuthRequest
 } from '../../middlewares/auth.middleware';
 
-import { RoomTypeImageController }
-    from './roomTypeImage.controller';
+import { requireHotelOwnership } from '../../middlewares/ownership.middleware';
+
+import { RoomTypeImageController } from './roomTypeImage.controller';
+import { RoomTypeImageModel } from './roomTypeImage.model';
+import { RoomTypeModel } from '../roomTypes/roomType.model';
 
 const router = Router();
 
+router.get('/', RoomTypeImageController.getAll);
+router.get('/room-type/:roomTypeId', RoomTypeImageController.getByRoomTypeId);
+router.get('/:id', RoomTypeImageController.getById);
 
-// ========================================
-// ROOM TYPE IMAGES
-// ========================================
-
-// Lấy tất cả hình ảnh
-router.get(
-    '/',
-    RoomTypeImageController.getAll
-);
-
-
-// Lấy hình ảnh của một loại phòng
-router.get(
-    '/room-type/:roomTypeId',
-    RoomTypeImageController.getByRoomTypeId
-);
-
-
-// Lấy hình ảnh theo ID
-router.get(
-    '/:id',
-    RoomTypeImageController.getById
-);
-
-
-// ADMIN hoặc HOTEL thêm hình ảnh
 router.post(
     '/',
     auth,
     role('admin', 'hotel'),
+    requireHotelOwnership(async (req: AuthRequest) => {
+        const roomType = await RoomTypeModel.getById(Number(req.body.room_type_id));
+        return roomType ? roomType.hotel_id : null;
+    }),
     RoomTypeImageController.create
 );
 
-
-// ADMIN hoặc HOTEL cập nhật
 router.put(
     '/:id',
     auth,
     role('admin', 'hotel'),
+    requireHotelOwnership(async (req: AuthRequest) => {
+        const image = await RoomTypeImageModel.getById(Number(req.params.id));
+        return image ? image.hotel_id : null;
+    }),
     RoomTypeImageController.update
 );
 
-
-// ADMIN hoặc HOTEL xóa
 router.delete(
     '/:id',
     auth,
     role('admin', 'hotel'),
+    requireHotelOwnership(async (req: AuthRequest) => {
+        const image = await RoomTypeImageModel.getById(Number(req.params.id));
+        return image ? image.hotel_id : null;
+    }),
     RoomTypeImageController.delete
 );
-
 
 export default router;

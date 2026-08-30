@@ -12,6 +12,7 @@ export interface JwtPayload {
   userId: number;
   roleId: number;
   roleCode: string;
+  hotelId?: number | null;
 }
 
 export const generateTokens = (payload: JwtPayload) => {

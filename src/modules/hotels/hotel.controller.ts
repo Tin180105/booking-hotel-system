@@ -2,7 +2,7 @@ import {
     Request,
     Response,
 } from "express";
-
+import { AuthRequest } from '../../middlewares/auth.middleware';
 import * as hotelService
     from "./hotel.service";
 
@@ -330,6 +330,43 @@ export const getBestCombos = async (
         return res.status(500).json({
             message:
                 "Không thể lấy danh sách combo tốt nhất"
+        });
+    }
+};
+
+// ========================================
+// GET MY HOTEL (dành cho role hotel)
+// ========================================
+
+export const getMyHotel = async (
+    req: AuthRequest,
+    res: Response
+) => {
+
+    try {
+
+        const hotelId = req.user?.hotelId;
+
+        if (!hotelId) {
+            return res.status(400).json({
+                message: "Tài khoản chưa được gắn với khách sạn nào",
+            });
+        }
+
+        const hotel =
+            await hotelService.getHotelById(hotelId);
+
+        return res.status(200).json({
+            hotel,
+        });
+
+    } catch (error) {
+
+        return res.status(404).json({
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Hotel không tồn tại",
         });
     }
 };

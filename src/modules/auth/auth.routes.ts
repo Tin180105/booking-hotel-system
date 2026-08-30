@@ -7,7 +7,7 @@ import {
 
 const router = Router();
 
-router.post('/register', auth, role('admin', 'hotel', 'customer'), AuthController.register);
+router.post('/register', AuthController.register);
 
 router.post('/login', AuthController.login);
 

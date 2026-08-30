@@ -1,75 +1,37 @@
 import { Router } from 'express';
-
-import {
-  getImages,
-  getImage,
-  createImage,
-  setPrimary,
-  deleteImage
-} from './hotelImage.controller';
-
-import {
-  authenticateJWT as auth,
-  role
-} from '../../middlewares/auth.middleware';
+import {getImages,getImage,createImage,setPrimary,deleteImage} from './hotelImage.controller';
+import { HotelImageModel } from './hotelImage.model';
+import {authenticateJWT as auth,role,AuthRequest} from '../../middlewares/auth.middleware';
+import { requireHotelOwnership } from '../../middlewares/ownership.middleware';
 
 const router = Router();
 
+// PUBLIC — ai cũng xem được ảnh (khách chưa đăng nhập vẫn cần xem để đặt phòng)
+router.get('/hotels/:hotelId/images', getImages);
+router.get('/hotel-images/:id', getImage);
 
-// ========================================
-// GET IMAGES
-// ========================================
-
-router.get(
-  '/hotels/:hotelId/images',
-  auth, role('admin', 'hotel', 'customer'),
-  getImages
-);
-
-
-// ========================================
-// GET IMAGE
-// ========================================
-
-router.get(
-  '/hotel-images/:id',
-  auth, role('admin', 'hotel', 'customer'),
-  getImage
-);
-
-
-// ========================================
-// CREATE IMAGE
-// ADMIN hoặc HOTEL
-// ========================================
-
-router.post(
-  '/hotels/:hotelId/images',
-  auth, role('admin', 'hotel', 'customer'),
+// CHỈ admin hoặc đúng hotel sở hữu mới được thêm/sửa/xóa
+router.post('/hotels/:hotelId/images',auth,role('admin', 'hotel'),
+requireHotelOwnership(async (req: AuthRequest) => {
+    const hotelId = Number(req.params.hotelId);
+    return Number.isInteger(hotelId) ? hotelId : null;
+  }),
   createImage
 );
 
-
-// ========================================
-// SET PRIMARY
-// ADMIN hoặc HOTEL
-// ========================================
-
-router.put(
-  '/hotel-images/:id/primary',
-  auth, role('admin', 'hotel', 'customer'),
+router.put('/hotel-images/:id/primary',auth,role('admin', 'hotel'),
+ requireHotelOwnership(async (req: AuthRequest) => {
+    const image = await HotelImageModel.findById(Number(req.params.id));
+    return image ? image.hotel_id : null;
+  }),
   setPrimary
 );
 
-
-// ========================================
-// DELETE
-// ADMIN hoặc HOTEL
-// ========================================
-
-router.delete(
-  '/hotel-images/:id',
-  auth, role('admin', 'hotel', 'customer'),
+router.delete('/hotel-images/:id',auth,role('admin', 'hotel'),
+  requireHotelOwnership(async (req: AuthRequest) => {
+    const image = await HotelImageModel.findById(Number(req.params.id));
+    return image ? image.hotel_id : null;
+  }),
   deleteImage
 );
 

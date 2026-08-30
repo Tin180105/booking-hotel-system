@@ -127,6 +127,7 @@ static async registerCustomer(
       userId: user.id,
       roleId: user.role_id,
       roleCode,
+      hotelId: user.hotel_id ?? null,
     });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -136,6 +137,7 @@ static async registerCustomer(
       user: { id: user.id, full_name: user.full_name, email: user.email, role_id: user.role_id, role_code: user.role_code },
       accessToken,
       refreshToken,
+      hotel_id: user.hotel_id ?? null
     };
   }
 

@@ -1,11 +1,10 @@
-import {
-    Router,
-} from "express";
+import {Router,} from "express";
 
 import {
     createHotel,
     getHotels,
     getHotelById,
+    getMyHotel,
     updateHotel,
     deleteHotel,
     updateHotelStatus,
@@ -14,10 +13,7 @@ import {
     getBestCombos,
 } from "./hotel.controller";
 
-import {
-    authenticateJWT as auth,
-    role
-} from '../../middlewares/auth.middleware';
+import {authenticateJWT as auth,role} from '../../middlewares/auth.middleware';
 
 const router = Router();
 
@@ -27,33 +23,18 @@ const router = Router();
 // ========================================
 
 // Xem danh sách khách sạn
-router.get(
-    "/",
-    getHotels
-);
+router.get("/",getHotels);
 
 // Xem tổng quan khách sạn từ VIEW
-router.get(
-    "/overview",
-    getHotelOverview
-);
+router.get("/overview",getHotelOverview);
 
-router.get(
-    "/best-combos",
-    getBestCombos
-);
+router.get("/best-combos",getBestCombos);
 
 // Xem doanh thu khách sạn từ VIEW
-router.get(
-    "/revenue",
-    getHotelRevenue
-);
-
+router.get("/revenue",getHotelRevenue);
+router.get("/me", auth, role('hotel'), getMyHotel);
 // Xem khách sạn theo ID
-router.get(
-    "/:id",
-    getHotelById
-);
+router.get("/:id",getHotelById);
 
 
 // ========================================

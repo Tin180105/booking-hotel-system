@@ -1,71 +1,54 @@
 import { Router } from 'express';
 
 import { RoomTypeController } from './roomType.controller';
+import { RoomTypeModel } from './roomType.model';
 
 import {
     authenticateJWT as auth,
-    role
+    role,
+    AuthRequest
 } from '../../middlewares/auth.middleware';
+
+import { requireHotelOwnership } from '../../middlewares/ownership.middleware';
 
 const router = Router();
 
+router.get('/', RoomTypeController.getAll);
+router.get('/overview', RoomTypeController.getOverview);
+router.get('/hotel/:hotelId', RoomTypeController.getByHotelId);
+router.get('/:id', RoomTypeController.getById);
 
-// ========================================
-// ROOM TYPES
-// ========================================
-
-// Xem tất cả loại phòng
-router.get(
-    '/',
-    RoomTypeController.getAll
-);
-
-// Xem tổng quan loại phòng
-router.get(
-    '/overview',
-    RoomTypeController.getOverview
-);
-
-
-// Xem loại phòng của một hotel
-router.get(
-    '/hotel/:hotelId',
-    RoomTypeController.getByHotelId
-);
-
-
-// Xem chi tiết loại phòng
-router.get(
-    '/:id',
-    RoomTypeController.getById
-);
-
-
-// ADMIN hoặc HOTEL tạo loại phòng
 router.post(
     '/',
     auth,
     role('admin', 'hotel'),
+    requireHotelOwnership(async (req: AuthRequest) => {
+        const hotelId = Number(req.body.hotel_id);
+        return Number.isInteger(hotelId) ? hotelId : null;
+    }),
     RoomTypeController.create
 );
 
-
-// ADMIN hoặc HOTEL cập nhật
 router.put(
     '/:id',
     auth,
     role('admin', 'hotel'),
+    requireHotelOwnership(async (req: AuthRequest) => {
+        const roomType = await RoomTypeModel.getById(Number(req.params.id));
+        return roomType ? roomType.hotel_id : null;
+    }),
     RoomTypeController.update
 );
 
-
-// ADMIN hoặc HOTEL xóa
 router.delete(
     '/:id',
     auth,
     role('admin', 'hotel'),
+    requireHotelOwnership(async (req: AuthRequest) => {
+        const roomType = await RoomTypeModel.getById(Number(req.params.id));
+        return roomType ? roomType.hotel_id : null;
+    }),
     RoomTypeController.delete
 );
-
 
 export default router;
