@@ -17,9 +17,8 @@ router.post('/logout', AuthController.logout);
 
 router.get('/users', auth, role('admin'), AuthController.listUsers);
 
-router.patch('/users/:id', AuthController.updateUser);
+router.patch('/users/:id', auth, role('admin'), AuthController.updateUser);
 
 router.delete('/users/:id', auth, role('admin'), AuthController.deleteUser);
-
 
 export default router;
