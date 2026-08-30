@@ -493,3 +493,65 @@ export const getHotelRevenue = async (): Promise<HotelRevenue[]> => {
     return await HotelModel.getRevenue();
 
 };
+
+// ========================================
+// GET BEST COMBOS
+// ========================================
+
+export const getBestCombos = async () => {
+
+    const db = await getDB();
+
+    const result = await db
+        .request()
+        .query(`
+            SELECT TOP 7
+
+                h.id,
+
+                h.name,
+
+                h.city,
+
+                h.description,
+
+                h.star_rating,
+
+                (
+                    SELECT TOP 1 hi.image_url
+
+                    FROM hotel_images hi
+
+                    WHERE hi.hotel_id = h.id
+
+                    ORDER BY
+                        hi.is_primary DESC,
+                        hi.id ASC
+
+                ) AS image_url
+
+            FROM hotels h
+
+            ORDER BY
+                h.star_rating DESC,
+                h.created_at DESC
+        `);
+
+    return result.recordset.map(
+        (hotel) => ({
+
+            id: hotel.id,
+
+            name: hotel.name,
+
+            city: hotel.city,
+
+            description: hotel.description,
+
+            starRating: hotel.star_rating,
+
+            imageUrl: hotel.image_url
+
+        })
+    );
+};

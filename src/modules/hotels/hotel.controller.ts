@@ -301,3 +301,35 @@ export const updateHotelStatus = async (
         });
     }
 };
+
+// ========================================
+// GET BEST COMBOS
+// ========================================
+
+export const getBestCombos = async (
+    req: Request,
+    res: Response
+) => {
+
+    try {
+
+        const hotels =
+            await hotelService.getBestCombos();
+
+        return res.status(200).json({
+            hotels
+        });
+
+    } catch (error) {
+
+        console.error(
+            "GET BEST COMBOS ERROR:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Không thể lấy danh sách combo tốt nhất"
+        });
+    }
+};

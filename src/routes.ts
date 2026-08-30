@@ -14,7 +14,7 @@ import bookingRoutes from './modules/bookings/booking.routes';
 import bookingRoomRoutes from './modules/bookingRooms/bookingRoom.routes';
 import paymentRoutes from './modules/payments/payment.routes';
 import payoutRoutes from './modules/payouts/payout.routes';
-
+import searchRoutes from './modules/search/search.routes';
 
 
 const router = Router();
@@ -34,6 +34,7 @@ router.use('/api/bookings', bookingRoutes);
 router.use('/api/booking-rooms', bookingRoomRoutes);
 router.use('/api/payments', paymentRoutes);
 router.use('/api/payouts', payoutRoutes);
+router.use('/api/search',searchRoutes);
 
 
 export default router;

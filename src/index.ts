@@ -9,9 +9,8 @@ import {
     connectDB,
 } from "./config/database";
 
-import hotelRoutes
-    from "../src/modules/hotels/hotel.routes";
-
+import hotelRoutes from "../src/modules/hotels/hotel.routes";
+import path from 'path'
 // ========================================
 // ENV CHECK
 // ========================================
@@ -108,6 +107,10 @@ app.use('/uploads', express.static('uploads'));
 // ========================================
 // START SERVER
 // ========================================
+app.use(
+  '/uploads',
+  express.static(path.join(process.cwd(), 'uploads'))
+)
 
 const PORT =
     Number(process.env.PORT) || 5000;

@@ -11,6 +11,7 @@ import {
     updateHotelStatus,
     getHotelOverview,
     getHotelRevenue,
+    getBestCombos,
 } from "./hotel.controller";
 
 import {
@@ -35,6 +36,11 @@ router.get(
 router.get(
     "/overview",
     getHotelOverview
+);
+
+router.get(
+    "/best-combos",
+    getBestCombos
 );
 
 // Xem doanh thu khách sạn từ VIEW
