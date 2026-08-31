@@ -36,6 +36,45 @@ export class AuthService {
     });
   }
 
+  static async createUserByAdmin(data: {
+  full_name: string;
+  email: string;
+  password: string;
+  phone?: string | null;
+  role_code: string;
+  hotel_id?: number | null;
+}) {
+  if (!data.full_name?.trim() || !data.email?.trim() || !data.password?.trim()) {
+    throw new Error('full_name, email và password là bắt buộc');
+  }
+
+  const role = await AuthModel.findRoleByCode(data.role_code);
+
+  if (!role || !['admin', 'hotel'].includes(String(role.code).toLowerCase())) {
+    throw new Error('Role không hợp lệ');
+  }
+
+  const roleCode = String(role.code).toLowerCase();
+  let hotelId: number | null = null;
+
+  if (roleCode === 'hotel') {
+    hotelId = data.hotel_id ?? null;
+
+    if (!hotelId || !Number.isInteger(hotelId) || hotelId <= 0) {
+      throw new Error('Vui lòng chọn khách sạn cho tài khoản hotel');
+    }
+  }
+
+  return await this.register(
+    data.full_name.trim(),
+    data.email.trim(),
+    data.password,
+    role.id,
+    hotelId,
+    data.phone?.trim() || null
+  );
+}
+
 // ========================================
   // REGISTER CUSTOMER — giờ ghi thẳng vào bảng customers
   // ========================================

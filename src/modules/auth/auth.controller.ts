@@ -124,4 +124,23 @@ export class AuthController {
     res.status(500).json({ status: 'error', message: err.message });
   }
 }
+
+static async createUser(req: Request, res: Response) {
+  try {
+    const { full_name, email, password, phone, role_code, hotel_id } = req.body;
+
+    const user = await AuthService.createUserByAdmin({
+      full_name,
+      email,
+      password,
+      phone,
+      role_code,
+      hotel_id: hotel_id ? Number(hotel_id) : null
+    });
+
+    res.status(201).json({ status: 'success', data: user });
+  } catch (err: any) {
+    res.status(400).json({ status: 'error', message: err.message });
+  }
+}
 }
