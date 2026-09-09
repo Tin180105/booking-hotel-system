@@ -48,10 +48,27 @@ export const RoomTypeModel = {
                     rt.capacity,
                     rt.total_rooms,
                     rt.base_price,
-                    rt.description
+                    rt.description,
+                    COALESCE(
+                        thumbnail.image_url,
+                        fallback_thumbnail.image_url
+                    ) AS thumbnail_url
                 FROM room_types rt
                 INNER JOIN hotels h
                     ON rt.hotel_id = h.id
+                OUTER APPLY (
+                    SELECT TOP 1
+                        image_url
+                    FROM room_type_images
+                    WHERE room_type_id = rt.id
+                    ORDER BY is_thumbnail DESC, id DESC
+                ) AS thumbnail
+                OUTER APPLY (
+                    SELECT TOP 1
+                        image_url
+                    FROM room_type_images
+                    ORDER BY is_thumbnail DESC, id DESC
+                ) AS fallback_thumbnail
                 ORDER BY rt.id DESC
             `);
 
@@ -77,8 +94,25 @@ export const RoomTypeModel = {
                     capacity,
                     total_rooms,
                     base_price,
-                    description
+                    description,
+                    COALESCE(
+                        thumbnail.image_url,
+                        fallback_thumbnail.image_url
+                    ) AS thumbnail_url
                 FROM room_types
+                OUTER APPLY (
+                    SELECT TOP 1
+                        image_url
+                    FROM room_type_images
+                    WHERE room_type_id = room_types.id
+                    ORDER BY is_thumbnail DESC, id DESC
+                ) AS thumbnail
+                OUTER APPLY (
+                    SELECT TOP 1
+                        image_url
+                    FROM room_type_images
+                    ORDER BY is_thumbnail DESC, id DESC
+                ) AS fallback_thumbnail
                 WHERE hotel_id = @hotel_id
                 ORDER BY id DESC
             `);
