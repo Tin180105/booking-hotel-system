@@ -96,77 +96,23 @@ BEGIN
         END;
 
         -- ========================================
-        -- 5. TÍNH SỐ ĐÊM
+        -- 5. TÍNH TIỀN PHÒNG QUA FUNCTION
         -- ========================================
 
         DECLARE @TotalNights INT;
-
-        SET @TotalNights =
-            DATEDIFF(DAY, @CheckIn, @CheckOut);
-
-        -- ========================================
-        -- 6. GIÁ PHÒNG BAN ĐẦU
-        -- ========================================
-
-        DECLARE @PricePerNight DECIMAL(12,2);
-
-        SET @PricePerNight = @BasePrice;
-
-        -- ========================================
-        -- 7. PRICE RULE
-        -- ========================================
-
-        DECLARE @AdjustmentType VARCHAR(20);
-        DECLARE @AdjustmentValue DECIMAL(12,2);
-
-        SELECT TOP 1
-            @AdjustmentType = adjustment_type,
-            @AdjustmentValue = adjustment_value
-        FROM price_rules
-        WHERE room_type_id = @RoomTypeId
-          AND is_active = 1
-          AND (
-                start_date IS NULL
-                OR CAST(@CheckIn AS DATE) >= start_date
-              )
-          AND (
-                end_date IS NULL
-                OR CAST(@CheckIn AS DATE) <= end_date
-              )
-        ORDER BY priority DESC;
-
-        -- ========================================
-        -- 8. ÁP DỤNG PRICE RULE
-        -- ========================================
-
-        IF @AdjustmentType = 'PERCENT'
-        BEGIN
-            SET @PricePerNight =
-                @BasePrice
-                + (@BasePrice * @AdjustmentValue / 100);
-        END;
-
-        IF @AdjustmentType = 'FIXED'
-        BEGIN
-            SET @PricePerNight =
-                @BasePrice + @AdjustmentValue;
-        END;
-
-        IF @PricePerNight < 0
-        BEGIN
-            SET @PricePerNight = 0;
-        END;
-
-        -- ========================================
-        -- 9. TÍNH TIỀN PHÒNG
-        -- ========================================
-
         DECLARE @TotalRoomPrice DECIMAL(12,2);
 
-        SET @TotalRoomPrice =
-            @PricePerNight
-            * @Quantity
-            * @TotalNights;
+        SET @TotalNights = dbo.fn_CalculateStayDays(
+            @CheckIn,
+            @CheckOut
+        );
+
+        SET @TotalRoomPrice = dbo.fn_CalculateRoomPrice(
+            @RoomTypeId,
+            @CheckIn,
+            @CheckOut,
+            @Quantity
+        );
 
         -- ========================================
         -- 10. TÍNH PROMOTION

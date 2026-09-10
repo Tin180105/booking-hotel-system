@@ -240,6 +240,23 @@ CREATE TABLE promotions (
 );
 GO
 
+CREATE TABLE customer_promotions (
+    customer_id BIGINT NOT NULL,
+    promotion_id BIGINT NOT NULL,
+    saved_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+
+    PRIMARY KEY (customer_id, promotion_id),
+
+    FOREIGN KEY (customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (promotion_id)
+        REFERENCES promotions(id)
+        ON DELETE CASCADE
+);
+GO
+
 
 -- =========================
 -- BOOKINGS
