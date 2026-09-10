@@ -12,28 +12,32 @@ export class AuthService {
     hotelId: number | null = null,
     phone: string | null = null
   ) {
-    if (!Number.isInteger(roleId) || roleId <= 0) {
-      throw new Error('role_id là bắt buộc và phải là số nguyên dương');
-    }
+    const roleIdNum = Number(roleId);   // ép kiểu
+  if (!Number.isInteger(roleIdNum) || roleIdNum <= 0) {
+    throw new Error('role_id là bắt buộc và phải là số nguyên dương');
+  }
+    
 
     if (hotelId !== null && (!Number.isInteger(hotelId) || hotelId <= 0)) {
       throw new Error('hotel_id phải là số nguyên dương');
     }
-
+    
     const existingUser = await AuthModel.findUserByEmail(email);
     if (existingUser) throw new Error('Email đã được sử dụng');
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-
+    
     return await AuthModel.createUser({
       full_name: fullName,
       email,
       password_hash: passwordHash,
-      role_id: roleId,
+      role_id: roleIdNum,
       hotel_id: hotelId,
       phone,
     });
+
+    
   }
 
   static async createUserByAdmin(data: {
