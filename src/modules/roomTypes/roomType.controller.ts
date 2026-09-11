@@ -255,5 +255,22 @@ export const RoomTypeController = {
                 message: error.message
             });
         }
+    },
+
+    async getAvailability(req: Request, res: Response) {
+    try {
+        const id = Number(req.params.id);
+        const { checkIn, checkOut } = req.query;
+
+        const data = await RoomTypeService.getAvailability(
+            id,
+            String(checkIn),
+            String(checkOut)
+        );
+
+        return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+        return res.status(400).json({ success: false, message: error.message });
     }
+}
 };

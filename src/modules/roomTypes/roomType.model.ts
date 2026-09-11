@@ -275,5 +275,45 @@ export const RoomTypeModel = {
             `);
 
         return result.rowsAffected[0];
-    }
+    },
+
+    async getAvailability(
+    id: number,
+    checkIn: string,
+    checkOut: string
+) {
+    const pool = await getConnection();
+
+    const result = await pool.request()
+        .input('id', sql.BigInt, id)
+        .input('check_in', sql.DateTime2, checkIn)
+        .input('check_out', sql.DateTime2, checkOut)
+        .query(`
+            SELECT
+                rt.id,
+                rt.total_rooms,
+                ISNULL((
+                    SELECT SUM(br.quantity)
+                    FROM booking_rooms br
+                    INNER JOIN bookings b
+                        ON b.id = br.booking_id
+                    WHERE br.room_type_id = rt.id
+                      AND br.expected_check_in < @check_out
+                      AND br.expected_check_out > @check_in
+                      AND b.status <> 'CANCELLED'
+                ), 0) AS booked_quantity
+            FROM room_types rt
+            WHERE rt.id = @id
+        `);
+
+    const row = result.recordset[0];
+    if (!row) return null;
+
+    return {
+        room_type_id: row.id,
+        total_rooms: row.total_rooms,
+        booked: row.booked_quantity,
+        available: row.total_rooms - row.booked_quantity
+    };
+}
 };

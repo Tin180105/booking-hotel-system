@@ -209,5 +209,18 @@ export const RoomTypeService = {
         }
 
         await RoomTypeModel.delete(id);
+    },
+
+    async getAvailability(id: number, checkIn: string, checkOut: string) {
+    if (!checkIn || !checkOut) {
+        throw new Error('Vui lòng cung cấp checkIn và checkOut');
     }
+    if (new Date(checkOut) <= new Date(checkIn)) {
+        throw new Error('checkOut phải sau checkIn');
+    }
+
+    const data = await RoomTypeModel.getAvailability(id, checkIn, checkOut);
+    if (!data) throw new Error('Không tìm thấy loại phòng');
+    return data;
+}
 };

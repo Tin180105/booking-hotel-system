@@ -16,6 +16,7 @@ const router = Router();
 router.get('/', RoomTypeController.getAll);
 router.get('/overview', RoomTypeController.getOverview);
 router.get('/hotel/:hotelId', RoomTypeController.getByHotelId);
+router.get('/:id/availability', RoomTypeController.getAvailability);
 router.get('/:id', RoomTypeController.getById);
 
 router.post(

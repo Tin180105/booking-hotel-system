@@ -30,11 +30,9 @@ export const requireHotelOwnership = (
         });
       }
 
-      if (req.user?.hotelId !== targetHotelId) {
-        return res.status(403).json({
-          status: 'error',
-          message: 'Bạn không có quyền trên khách sạn này'
-        });
+      if (Number(req.user?.hotelId) !== Number(targetHotelId)) {
+        console.log('[ownership] mismatch', { userHotelId: req.user?.hotelId, targetHotelId }); // debug tạm
+        return res.status(403).json({ status: 'error', message: 'Bạn không có quyền trên khách sạn này' });
       }
 
       return next();
