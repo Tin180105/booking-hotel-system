@@ -1,6 +1,27 @@
 USE [BOOKING-HOTEL];
 GO
 
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('refresh_tokens')
+      AND name = 'session_id'
+)
+BEGIN
+    ALTER TABLE refresh_tokens ADD session_id VARCHAR(36) NULL;
+END
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = 'IX_refresh_tokens_session_id'
+      AND object_id = OBJECT_ID('refresh_tokens')
+)
+BEGIN
+    CREATE INDEX IX_refresh_tokens_session_id
+    ON refresh_tokens(session_id, revoked_at, expires_at);
+END
+GO
+
 -- ============================================
 -- 1. DROP FK cũ (refresh_tokens.user_id -> users) nếu còn tồn tại
 -- ============================================

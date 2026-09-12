@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { AuthModel } from './auth.model';
 import { generateTokens, verifyRefreshToken } from '../../utils/jwt';
 import { CustomerModel } from '../customers/customer.model';
@@ -126,15 +127,18 @@ export class AuthService {
       }
 
       const roleCode = String(user.role_code || '').toUpperCase();
+      const sessionId = randomUUID();
+      await AuthModel.revokeOwnerSessions('user', user.id);
       const { accessToken, refreshToken } = generateTokens({
         userId: user.id,
         roleId: user.role_id,
         roleCode,
         hotelId: user.hotel_id ?? null,
+        sessionId,
       });
 
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      await AuthModel.saveRefreshToken('user', user.id, refreshToken, expiresAt);
+      await AuthModel.saveRefreshToken('user', user.id, sessionId, refreshToken, expiresAt);
 
       return {
         user: {
@@ -162,15 +166,18 @@ export class AuthService {
       throw new Error('Email hoặc mật khẩu không đúng');
     }
 
+    const sessionId = randomUUID();
+    await AuthModel.revokeOwnerSessions('customer', customer.id);
     const { accessToken, refreshToken } = generateTokens({
       userId: customer.id,
       roleId: 0,
       roleCode: 'CUSTOMER',
       hotelId: null,
+      sessionId,
     });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await AuthModel.saveRefreshToken('customer', customer.id, refreshToken, expiresAt);
+    await AuthModel.saveRefreshToken('customer', customer.id, sessionId, refreshToken, expiresAt);
 
     return {
       user: {

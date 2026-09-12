@@ -259,6 +259,7 @@ export class AuthModel {
   static async saveRefreshToken(
   ownerType: 'user' | 'customer',
   ownerId: number,
+  sessionId: string,
   token: string,
   expiresAt: Date
 ) {
@@ -266,22 +267,51 @@ export class AuthModel {
 
   const request = pool.request()
     .input('token', sql.VarChar, token)
+    .input('session_id', sql.VarChar(36), sessionId)
     .input('expires_at', sql.DateTime2, expiresAt);
 
   if (ownerType === 'user') {
     request.input('user_id', sql.BigInt, ownerId);
     await request.query(`
-      INSERT INTO refresh_tokens (user_id, customer_id, token, expires_at)
-      VALUES (@user_id, NULL, @token, @expires_at)
+      INSERT INTO refresh_tokens (user_id, customer_id, session_id, token, expires_at)
+      VALUES (@user_id, NULL, @session_id, @token, @expires_at)
     `);
   } else {
     request.input('customer_id', sql.BigInt, ownerId);
     await request.query(`
-      INSERT INTO refresh_tokens (user_id, customer_id, token, expires_at)
-      VALUES (NULL, @customer_id, @token, @expires_at)
+      INSERT INTO refresh_tokens (user_id, customer_id, session_id, token, expires_at)
+      VALUES (NULL, @customer_id, @session_id, @token, @expires_at)
     `);
   }
 }
+
+  static async revokeOwnerSessions(ownerType: 'user' | 'customer', ownerId: number) {
+    const pool = await getConnection();
+    const request = pool.request().input('owner_id', sql.BigInt, ownerId);
+    const ownerColumn = ownerType === 'user' ? 'user_id' : 'customer_id';
+
+    await request.query(`
+      UPDATE refresh_tokens
+      SET revoked_at = GETDATE()
+      WHERE ${ownerColumn} = @owner_id
+        AND revoked_at IS NULL
+    `);
+  }
+
+  static async isSessionActive(sessionId: string) {
+    const pool = await getConnection();
+    const result = await pool.request()
+      .input('session_id', sql.VarChar(36), sessionId)
+      .query(`
+        SELECT TOP 1 id
+        FROM refresh_tokens
+        WHERE session_id = @session_id
+          AND revoked_at IS NULL
+          AND expires_at > GETDATE()
+      `);
+
+    return result.recordset.length > 0;
+  }
 
 
   // ========================================
