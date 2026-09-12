@@ -115,7 +115,42 @@ export class PayoutController {
         }
     }
 
+    // thêm vào trong class PayoutController
 
+    // =========================
+    // GET BY HOTEL ID
+    // =========================
+    static async getByHotelId(
+        req: Request,
+        res: Response
+    ) {
+        try {
+
+            const hotelId = Number(req.params.hotelId);
+
+            if (isNaN(hotelId)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'ID khách sạn không hợp lệ'
+                });
+            }
+
+            const payouts =
+                await PayoutService.getByHotelId(hotelId);
+
+            return res.status(200).json({
+                success: true,
+                data: payouts
+            });
+
+        } catch (error: any) {
+
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
     // =========================
     // UPDATE
     // =========================

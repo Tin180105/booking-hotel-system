@@ -1,21 +1,39 @@
 import { Router } from 'express';
 import { PayoutController } from './payout.controller';
+import {
+  authenticateJWT as auth,
+  role,
+  AuthRequest
+} from '../../middlewares/auth.middleware';
+import { requireHotelOwnership } from '../../middlewares/ownership.middleware';
 
 const router = Router();
 
-// CREATE
-router.post('/', PayoutController.createPayout);
+// ADMIN: tạo payout
+router.post('/', auth, role('admin'), PayoutController.createPayout);
 
-// GET ALL
-router.get('/', PayoutController.getPayouts);
+// ADMIN: xem tất cả payout
+router.get('/', auth, role('admin'), PayoutController.getPayouts);
 
-// GET BY ID
-router.get('/:id', PayoutController.getPayoutById);
+// ADMIN hoặc HOTEL (chỉ xem của chính mình): xem payout theo hotel
+router.get(
+  '/hotel/:hotelId',
+  auth,
+  role('admin', 'hotel'),
+  requireHotelOwnership(async (req: AuthRequest) => {
+    const hotelId = Number(req.params.hotelId);
+    return Number.isInteger(hotelId) ? hotelId : null;
+  }),
+  PayoutController.getByHotelId
+);
 
-// UPDATE
-router.put('/:id', PayoutController.updatePayout);
+// ADMIN: xem chi tiết 1 payout
+router.get('/:id', auth, role('admin'), PayoutController.getPayoutById);
 
-// DELETE
-router.delete('/:id', PayoutController.deletePayout);
+// ADMIN: cập nhật (đổi trạng thái, ngày chi trả...)
+router.put('/:id', auth, role('admin'), PayoutController.updatePayout);
+
+// ADMIN: xoá
+router.delete('/:id', auth, role('admin'), PayoutController.deletePayout);
 
 export default router;

@@ -87,6 +87,38 @@ static async createPayout(data: {
         return result.recordset[0] || null;
     }
 
+    // thêm vào trong class PayoutModel
+
+    // =========================
+    // GET BY HOTEL ID
+    // =========================
+    static async getByHotelId(hotelId: number) {
+
+        const pool = await getConnection();
+
+        const result = await pool.request()
+            .input('hotel_id', sql.BigInt, hotelId)
+            .query(`
+                SELECT
+                    p.id,
+                    p.hotel_id,
+                    h.name AS hotel_name,
+                    p.payout_code,
+                    p.total_booking_amount,
+                    p.total_commission,
+                    p.payout_amount,
+                    p.status,
+                    p.payout_date,
+                    p.created_at
+                FROM payouts p
+                INNER JOIN hotels h
+                    ON p.hotel_id = h.id
+                WHERE p.hotel_id = @hotel_id
+                ORDER BY p.created_at DESC
+            `);
+
+        return result.recordset;
+    }
 
     // =========================
     // UPDATE

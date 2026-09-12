@@ -63,4 +63,15 @@ export class PayoutService {
 
         return payout;
     }
+
+    // thêm vào trong class PayoutService
+
+    static async getByHotelId(hotelId: number) {
+
+        if (!Number.isInteger(hotelId) || hotelId <= 0) {
+            throw new Error('Hotel ID không hợp lệ');
+        }
+
+        return await PayoutModel.getByHotelId(hotelId);
+    }
 }
