@@ -7,8 +7,8 @@ import {
 
 const router = Router();
 
-// ADMIN xem tổng quan booking (view)
-router.get('/overview', auth, role('admin'), BookingController.getOverview);
+// ADMIN xem tổng quan booking, CUSTOMER chỉ xem booking của chính mình
+router.get('/overview', auth, role('admin', 'customer'), BookingController.getOverview);
 
 // ADMIN xem tất cả booking
 router.get('/', auth, role('admin'), BookingController.getAll);

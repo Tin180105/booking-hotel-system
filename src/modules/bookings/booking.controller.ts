@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { BookingService } from './booking.service';
+import { AuthRequest } from '../../middlewares/auth.middleware';
 
 export const BookingController = {
 
@@ -30,15 +31,18 @@ export const BookingController = {
     // =========================
     // GET OVERVIEW
     // =========================
-    async getOverview(req: Request, res: Response) {
+    async getOverview(req: AuthRequest, res: Response) {
 
         try {
 
             const data = await BookingService.getOverview();
+            const filteredData = req.user?.roleCode?.toLowerCase() === 'customer'
+                ? data.filter((booking: any) => booking.customer_id === req.user?.userId)
+                : data;
 
             return res.status(200).json({
                 success: true,
-                data
+                data: filteredData
             });
 
         } catch (error: any) {
