@@ -37,21 +37,21 @@ router.get(
 router.post(
     '/',
     auth,
-    role('admin'),
+    role('admin','hotel'),
     AmenityController.create
 );
 
 router.put(
     '/:id',
     auth,
-    role('admin'),
+    role('admin','hotel'),
     AmenityController.update
 );
 
 router.delete(
     '/:id',
     auth,
-    role('admin'),
+    role('admin','hotel'),
     AmenityController.delete
 );
 
