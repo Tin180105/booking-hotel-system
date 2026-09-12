@@ -140,7 +140,10 @@ export const BookingController = {
             // TRIGGER BOOKING OVERLAP
             if (
                 error.number === 50000 &&
-                error.message?.includes('trùng')
+                (
+                    error.message?.includes('trùng') ||
+                    error.message?.includes('Không đủ phòng')
+                )
             ) {
                 return res.status(409).json({
                     success: false,

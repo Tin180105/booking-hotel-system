@@ -24,7 +24,8 @@ BEGIN
                     AND br.id <> i.id
                     AND br.expected_check_in < i.expected_check_out
                     AND br.expected_check_out > i.expected_check_in
-                    AND b.status <> 'CANCELLED'
+                                        AND b.hotel_id = bi.hotel_id
+                                        AND b.status NOT IN ('CANCELLED', 'REJECTED')
               ), 0) + i.quantity
           ) > rt.total_rooms
     )

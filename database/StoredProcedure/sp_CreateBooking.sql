@@ -107,9 +107,10 @@ FROM booking_rooms br
 INNER JOIN bookings b
     ON b.id = br.booking_id
 WHERE br.room_type_id = @RoomTypeId
+    AND b.hotel_id = @HotelId
   AND br.expected_check_in < @CheckOut
   AND br.expected_check_out > @CheckIn
-  AND b.status <> 'CANCELLED';
+    AND b.status NOT IN ('CANCELLED', 'REJECTED');
 
 IF (@BookedQuantity + @Quantity) > @TotalRooms
 BEGIN
