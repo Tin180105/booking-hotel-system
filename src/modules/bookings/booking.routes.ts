@@ -26,7 +26,7 @@ router.post('/', auth, role('admin', 'customer'), BookingController.create);
 router.put('/:id', auth, role('admin', 'hotel'), BookingController.update);
 
 // Chỉ đổi trạng thái (dùng cho xác nhận/hủy nhanh)
-router.patch('/:id/status', auth, role('admin', 'hotel'), BookingController.updateStatus);
+router.patch('/:id/status', auth, role('admin', 'hotel', 'customer'), BookingController.updateStatus);
 
 // Xóa booking
 router.delete('/:id', auth, role('admin'), BookingController.delete);

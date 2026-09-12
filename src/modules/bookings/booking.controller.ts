@@ -263,12 +263,30 @@ export const BookingController = {
     // =========================
     // UPDATE STATUS
     // =========================
-    async updateStatus(req: Request, res: Response) {
+    async updateStatus(req: AuthRequest, res: Response) {
 
         try {
 
             const id = Number(req.params.id);
             const { status } = req.body;
+
+            if (req.user?.roleCode?.toLowerCase() === 'customer') {
+                const booking = await BookingService.getById(id);
+
+                if (!booking || booking.customer_id !== req.user.userId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền cập nhật booking này'
+                    });
+                }
+
+                if (String(status).toUpperCase() !== 'CANCELLED') {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Khách hàng chỉ được hủy booking'
+                    });
+                }
+            }
 
             const data = await BookingService.updateStatus(id, status);
 
