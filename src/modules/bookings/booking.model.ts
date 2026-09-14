@@ -307,28 +307,53 @@ export const BookingModel = {
     // UPDATE STATUS (chỉ đổi trạng thái — nhanh gọn)
     // ========================================
 
-    async updateStatus(id: number, status: string) {
+    // async updateStatus(id: number, status: string) {
 
-        const pool = await getConnection();
+    //     const pool = await getConnection();
 
-        const result = await pool.request()
-            .input('id', sql.BigInt, id)
-            .input('status', sql.VarChar, status)
-            .query(`
-                UPDATE bookings
-                SET
-                    status = @status,
-                    updated_at = GETDATE()
-                OUTPUT
-                    INSERTED.id,
-                    INSERTED.status,
-                    INSERTED.updated_at
-                WHERE id = @id
-            `);
+    //     const result = await pool.request()
+    //         .input('id', sql.BigInt, id)
+    //         .input('status', sql.VarChar, status)
+    //         .query(`
+    //             UPDATE bookings
+    //             SET
+    //                 status = @status,
+    //                 updated_at = GETDATE()
+    //             OUTPUT
+    //                 INSERTED.id,
+    //                 INSERTED.status,
+    //                 INSERTED.updated_at
+    //             WHERE id = @id
+    //         `);
 
-        return result.recordset[0] || null;
-    },
+    //     return result.recordset[0] || null;
+    // }, code lỗi loadupdate
+async updateStatus(id: number, status: string, expectedOldStatus?: string) {
+    const pool = await getConnection();
+    const request = pool.request()
+        .input('id', sql.BigInt, id)
+        .input('status', sql.VarChar, status);
 
+    let whereClause = 'WHERE id = @id';
+    if (expectedOldStatus) {
+        request.input('old_status', sql.VarChar, expectedOldStatus);
+        whereClause += ' AND status = @old_status';
+    }
+
+    const result = await pool.request()
+        .input('id', sql.BigInt, id)
+        .input('status', sql.VarChar, status)
+        .input('old_status', sql.VarChar, expectedOldStatus ?? null)
+        .query(`
+            UPDATE bookings
+            SET status = @status, updated_at = GETDATE()
+            OUTPUT INSERTED.id, INSERTED.status, INSERTED.updated_at
+            WHERE id = @id
+              AND (@old_status IS NULL OR status = @old_status)
+        `);
+
+    return result.recordset[0] || null;
+},
 
     // ========================================
     // DELETE
