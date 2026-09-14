@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
+import { AuthModel } from '../modules/auth/auth.model';
 
 
 // ========================================
@@ -12,6 +13,7 @@ export interface AuthRequest extends Request {
     roleId: number;
     roleCode: string;
     hotelId?: number | null;
+    sessionId: string;
   };
 }
 
@@ -20,7 +22,7 @@ export interface AuthRequest extends Request {
 // AUTHENTICATE JWT
 // ========================================
 
-export const authenticateJWT = (
+export const authenticateJWT = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -45,6 +47,13 @@ export const authenticateJWT = (
 
     // Verify token
     req.user = verifyAccessToken(token);
+
+    if (!req.user.sessionId || !(await AuthModel.isSessionActive(req.user.sessionId))) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Phiên đăng nhập đã bị thay thế bởi lần đăng nhập khác'
+      });
+    }
 
     next();
 
