@@ -6,6 +6,7 @@ import {
   AuthRequest
 } from '../../middlewares/auth.middleware';
 import { requireHotelOwnership } from '../../middlewares/ownership.middleware';
+import { PayoutModel } from './payout.model';
 
 const router = Router();
 
@@ -36,4 +37,15 @@ router.put('/:id', auth, role('admin'), PayoutController.updatePayout);
 // ADMIN: xoá
 router.delete('/:id', auth, role('admin'), PayoutController.deletePayout);
 
+
+router.patch(
+  '/:id/confirm-received',
+  auth,
+  role('hotel'),
+  requireHotelOwnership(async (req: AuthRequest) => {
+    const payout = await PayoutModel.getPayoutById(Number(req.params.id));
+    return payout ? payout.hotel_id : null;
+  }),
+  PayoutController.confirmReceived
+);
 export default router;

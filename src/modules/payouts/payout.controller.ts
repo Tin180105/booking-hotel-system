@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PayoutService } from './payout.service';
-
+import { AuthRequest } from '../../middlewares/auth.middleware';
 export class PayoutController {
 
     // =========================
@@ -223,5 +223,33 @@ export class PayoutController {
                 message: error.message
             });
         }
+    }
+
+    static async confirmReceived(req: AuthRequest, res: Response) {
+    try {
+        const id = Number(req.params.id);
+        if (isNaN(id)) {
+            return res.status(400).json({ success: false, message: 'ID không hợp lệ' });
+        }
+
+        const hotelId = req.user?.hotelId;
+        if (!hotelId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tài khoản chưa được gắn với khách sạn nào'
+            });
+        }
+
+        const payout = await PayoutService.confirmReceived(id, hotelId);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Xác nhận đã nhận tiền thành công',
+            data: payout
+        });
+
+    } catch (error: any) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
     }
 }

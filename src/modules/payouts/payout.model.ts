@@ -166,21 +166,179 @@ static async createPayout(data: {
     }
 
 
-    // =========================
-    // DELETE
-    // =========================
-    static async deletePayout(id: number) {
+    // ========================================
+// DELETE — có xác minh trạng thái 2 lần
+// (đọc trước khi kiểm tra ràng buộc, đọc lại trước khi xóa)
+// ========================================
+// static async deletePayout(id: number) {
 
-        const pool = await getConnection();
+//     const pool = await getConnection();
+//     const transaction = new sql.Transaction(pool);
+//     await transaction.begin();
 
-        const result = await pool.request()
+//     try {
+//         const first = await new sql.Request(transaction)
+//             .input('id', sql.BigInt, id)
+//             .query(`
+//                 SELECT id, hotel_id, status, payout_amount
+//                 FROM payouts
+//                 WHERE id = @id
+//             `);
+
+//         if (first.recordset.length === 0) {
+//             await transaction.rollback();
+//             return null;
+//         }
+
+//         const payout = first.recordset[0];
+
+//         if (!['PENDING', 'PAID'].includes(payout.status)) {
+//             await transaction.rollback();
+//             throw new Error(
+//                 `Không thể xóa payout đang ở trạng thái "${payout.status}"`
+//             );
+//         }
+
+//         await new sql.Request(transaction)
+//             .input('hotel_id', sql.BigInt, payout.hotel_id)
+//             .query(`
+//                 SELECT COUNT(*) AS total
+//                 FROM bookings b
+//                 INNER JOIN payments p ON p.booking_id = b.id
+//                 WHERE b.hotel_id = @hotel_id
+//                   AND p.payment_status = 'SUCCESS'
+//             `);
+
+//         // Khoảng dừng để mô phỏng thời gian admin xem lại kết quả đối chiếu
+//         // trên màn hình trước khi bấm xác nhận xóa lần cuối (thao tác thật của con người)
+//         await new Promise((resolve) => setTimeout(resolve, 8000));
+
+//         // ===== LẦN ĐỌC 2: xác minh lại ngay trước khi xóa =====
+//         const second = await new sql.Request(transaction)
+//             .input('id', sql.BigInt, id)
+//             .query(`
+//                 SELECT id, status
+//                 FROM payouts
+//                 WHERE id = @id
+//             `);
+
+//         const currentStatus = second.recordset[0]?.status;
+
+//         if (currentStatus !== payout.status) {
+//             // NON-REPEATABLE READ bị bắt tại đây:
+//             // trạng thái đã đổi giữa 2 lần đọc trong cùng transaction
+//             await transaction.rollback();
+//             throw new Error(
+//                 `Không thể xóa: trạng thái payout đã thay đổi từ "${payout.status}" ` +
+//                 `sang "${currentStatus}" trong lúc hệ thống đang xác minh. ` +
+//                 `Vui lòng tải lại trang.`
+//             );
+//         }
+
+//         // ===== TRẠNG THÁI KHÔNG ĐỔI -> AN TOÀN ĐỂ XÓA =====
+//         const result = await new sql.Request(transaction)
+//             .input('id', sql.BigInt, id)
+//             .query(`
+//                 DELETE FROM payouts
+//                 OUTPUT DELETED.id, DELETED.hotel_id, DELETED.payout_code
+//                 WHERE id = @id
+//             `);
+
+//         await transaction.commit();
+
+//         return result.recordset[0] || null;
+
+//     } catch (error) {
+//         try {
+//             await transaction.rollback();
+//         } catch {
+//             // đã rollback hoặc chưa begin
+//         }
+//         throw error;
+//     }
+// }, bản có fix rồi , lỗi non-read
+// ========================================
+// DELETE — PHIÊN BẢN CHƯA FIX 
+// ========================================
+static async deletePayout(id: number) {
+
+    const pool = await getConnection();
+    const transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    try {
+        // ===== ĐỌC (LẦN DUY NHẤT) =====
+        const first = await new sql.Request(transaction)
             .input('id', sql.BigInt, id)
             .query(`
-                DELETE FROM payouts
-                OUTPUT DELETED.*
+                SELECT id, hotel_id, status, payout_amount
+                FROM payouts
                 WHERE id = @id
             `);
 
+        if (first.recordset.length === 0) {
+            await transaction.rollback();
+            return null;
+        }
+
+        const payout = first.recordset[0];
+
+        if (!['PENDING', 'PAID'].includes(payout.status)) {
+            await transaction.rollback();
+            throw new Error(
+                `Không thể xóa payout đang ở trạng thái "${payout.status}"`
+            );
+        }
+
+        // Bước kiểm tra ràng buộc dữ liệu liên quan (xử lý thật)
+        await new sql.Request(transaction)
+            .input('hotel_id', sql.BigInt, payout.hotel_id)
+            .query(`
+                SELECT COUNT(*) AS total
+                FROM bookings b
+                INNER JOIN payments p ON p.booking_id = b.id
+                WHERE b.hotel_id = @hotel_id
+                  AND p.payment_status = 'SUCCESS'
+            `);
+
+        // Khoảng dừng mô phỏng admin xem lại kết quả trước khi xác nhận
+        await new Promise((resolve) => setTimeout(resolve, 8000));
+
+        // KHÔNG ĐỌC LẠI TRẠNG THÁI — xóa thẳng dựa vào dữ liệu đọc từ đầu
+        const result = await new sql.Request(transaction)
+            .input('id', sql.BigInt, id)
+            .query(`
+                DELETE FROM payouts
+                OUTPUT DELETED.id, DELETED.hotel_id, DELETED.payout_code
+                WHERE id = @id
+            `);
+
+        await transaction.commit();
+
         return result.recordset[0] || null;
+
+    } catch (error) {
+        try {
+            await transaction.rollback();
+        } catch {
+            // đã rollback hoặc chưa begin
+        }
+        throw error;
     }
+}
+
+static async confirmReceived(id: number) {
+    const pool = await getConnection();
+    const result = await pool.request()
+        .input('id', sql.BigInt, id)
+        .query(`
+            UPDATE payouts
+            SET status = 'CONFIRMED'
+            OUTPUT INSERTED.*
+            WHERE id = @id
+              AND status = 'PAID'
+        `);
+    return result.recordset[0] || null;
+}
 }
