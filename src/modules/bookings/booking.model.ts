@@ -308,53 +308,90 @@ export const BookingModel = {
     // UPDATE STATUS (chỉ đổi trạng thái — nhanh gọn)
     // ========================================
 
+    // 🧪 DEMO LOST UPDATE — test bằng cách bấm thật trên giao diện Admin
+    // (dropdown "Trạng thái" ở /admin/bookings), mở 2 tab cùng đổi
+    // trạng thái 1 booking gần như đồng thời.
+    //
+    // Bản đang BẬT dưới đây = LỖI: đọc status hiện tại, "suy nghĩ" 6s
+    // (giữ nguyên độ trễ y như code cũ), rồi GHI ĐÈ MÙ theo id — không
+    // khóa, không kiểm tra lại status cũ còn đúng không.
+    //
+    // -> Quay xong phần lỗi: COMMENT khối này lại, UNCOMMENT khối
+    // "BẢN FIX" ngay bên dưới rồi build lại để quay phần fix. Cả 2 bản
+    // dùng chung 1 chỗ gọi ở booking.service.ts, không phải sửa gì ở đó.
+    async updateStatus(id: number, status: string) {
+        const pool = await getConnection();
+
+        const before = await pool.request()
+            .input('id', sql.BigInt, id)
+            .query(`SELECT id, status 
+                FROM bookings 
+                WHERE id = @id`
+            );
+
+        console.log(`[DEMO][BUG] Booking #${id}: đọc status = ${before.recordset[0]?.status}, đang "xử lý" 6s...`);
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+        console.log(`[DEMO][BUG] Booking #${id}: hết 6s, ghi status = ${status} (không kiểm tra lại status cũ)`);
+
+        const result = await pool.request()
+            .input('id', sql.BigInt, id)
+            .input('status', sql.VarChar, status)
+            .query(`
+                UPDATE bookings
+                SET status = @status, updated_at = GETDATE()
+                OUTPUT INSERTED.id, INSERTED.status, INSERTED.updated_at
+                WHERE id = @id
+            `);
+
+        return result.recordset[0] || null;
+    },
+
+    // -----------------------------------------------------------------
+    // 🔒 BẢN FIX — chỉ thêm 1 khóa so với bản lỗi ở trên: bọc trong
+    // transaction, đọc bằng WITH (UPDLOCK, ROWLOCK) để khóa luôn dòng
+    // này, GIỮ khóa xuyên suốt 6s "suy nghĩ" rồi mới UPDATE + COMMIT
+    // (nhả khóa). Tab nào đọc sau sẽ bị TREO tại câu SELECT cho tới khi
+    // tab đầu COMMIT xong, nên không còn 2 tab cùng đọc 1 status cũ rồi
+    // cùng ghi đè lên nhau nữa.
+    //
+    // Muốn quay phần fix: comment khối "async updateStatus" phía trên,
+    // rồi uncomment khối bên dưới (bỏ dấu // ở đầu mỗi dòng).
+    // -----------------------------------------------------------------
     // async updateStatus(id: number, status: string) {
-
     //     const pool = await getConnection();
-
-    //     const result = await pool.request()
-    //         .input('id', sql.BigInt, id)
-    //         .input('status', sql.VarChar, status)
-    //         .query(`
-    //             UPDATE bookings
-    //             SET
-    //                 status = @status,
-    //                 updated_at = GETDATE()
-    //             OUTPUT
-    //                 INSERTED.id,
-    //                 INSERTED.status,
-    //                 INSERTED.updated_at
-    //             WHERE id = @id
-    //         `);
-
-    //     return result.recordset[0] || null;
-    // }, code lỗi LostUpdate
-    async updateStatus(id: number, status: string, expectedOldStatus?: string) {
-    const pool = await getConnection();
-    const request = pool.request()
-        .input('id', sql.BigInt, id)
-        .input('status', sql.VarChar, status);
-
-    let whereClause = 'WHERE id = @id';
-    if (expectedOldStatus) {
-        request.input('old_status', sql.VarChar, expectedOldStatus);
-        whereClause += ' AND status = @old_status';
-    }
-
-    const result = await pool.request()
-        .input('id', sql.BigInt, id)
-        .input('status', sql.VarChar, status)
-        .input('old_status', sql.VarChar, expectedOldStatus ?? null)
-        .query(`
-            UPDATE bookings
-            SET status = @status, updated_at = GETDATE()
-            OUTPUT INSERTED.id, INSERTED.status, INSERTED.updated_at
-            WHERE id = @id
-              AND (@old_status IS NULL OR status = @old_status)
-        `);
-
-    return result.recordset[0] || null;
-},
+    //     const transaction = new sql.Transaction(pool);
+    //     await transaction.begin();
+    //
+    //     try {
+    //         const before = await new sql.Request(transaction)
+    //             .input('id', sql.BigInt, id)
+    //             .query(`
+    //                 SELECT id, status
+    //                 FROM bookings WITH (UPDLOCK, ROWLOCK)
+    //                 WHERE id = @id
+    //             `);
+    //
+    //         console.log(`[DEMO][FIX] Booking #${id}: đã khóa dòng, status = ${before.recordset[0]?.status}, đang "xử lý" 6s...`);
+    //         await new Promise((resolve) => setTimeout(resolve, 6000));
+    //         console.log(`[DEMO][FIX] Booking #${id}: hết 6s, ghi status = ${status} rồi COMMIT (nhả khóa)`);
+    //
+    //         const result = await new sql.Request(transaction)
+    //             .input('id', sql.BigInt, id)
+    //             .input('status', sql.VarChar, status)
+    //             .query(`
+    //                 UPDATE bookings
+    //                 SET status = @status, updated_at = GETDATE()
+    //                 OUTPUT INSERTED.id, INSERTED.status, INSERTED.updated_at
+    //                 WHERE id = @id
+    //             `);
+    //
+    //         await transaction.commit();
+    //         return result.recordset[0] || null;
+    //     } catch (error) {
+    //         await transaction.rollback();
+    //         throw error;
+    //     }
+    // },
 
     // ========================================
     // DEMO DEADLOCK: hủy booking + hủy payment trong 1 transaction
