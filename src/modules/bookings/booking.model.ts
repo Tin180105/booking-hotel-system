@@ -357,18 +357,7 @@ export const BookingModel = {
 },
 
     // ========================================
-    // HỦY BOOKING + HỦY LUÔN PAYMENT ĐANG PENDING
-    // (nếu có) — dùng khi khách bấm "Hủy thanh toán"
-    //
-    // ⚠️ CHƯA FIX DEADLOCK (bản LỖI — dùng để demo):
-    // Ở đây khóa bảng `payments` TRƯỚC, rồi mới khóa
-    // `bookings` SAU. Trong khi đó payment.model.ts
-    // (createPayment) lại khóa `bookings` TRƯỚC rồi mới
-    // khóa `payments` SAU.
-    // -> Nếu khách vừa bấm "Thanh toán" vừa bấm "Hủy"
-    // gần như cùng lúc cho cùng 1 booking, 2 giao dịch sẽ
-    // khóa chéo nhau => DEADLOCK (SQL Server tự chọn 1
-    // giao dịch làm "deadlock victim" để rollback, lỗi 1205).
+    // DEMO DEADLOCK: hủy booking + hủy payment trong 1 transaction
     // ========================================
     async cancelBookingAndVoidPayment(
         id: number,
@@ -380,9 +369,6 @@ export const BookingModel = {
         await transaction.begin();
 
         try {
-         // BƯỚC 1 (CHƯA CÓ KHÓA ĐÚNG THỨ TỰ): hủy payment
-        // đang PENDING của booking này trước
-        // -> câu UPDATE này tự động khóa dòng `payments`
         await new sql.Request(transaction)
             .input('booking_id', sql.BigInt, id)
             .query(`
@@ -392,15 +378,10 @@ export const BookingModel = {
                 AND payment_status = 'PENDING'
             `);
 
-        // Giả lập gọi API hủy giao dịch bên cổng thanh toán
-        // và chờ phản hồi trước khi xác nhận hủy booking
-        // (đây là lúc dòng `payments` đang bị giữ khóa ở trên)
         console.log(`[DEMO] Đã khóa payment của booking #${id}, đang chờ cổng thanh toán xác nhận hủy (6s)...`);
         await new Promise((resolve) => setTimeout(resolve, 6000));
         console.log(`[DEMO] Hết 6s, tiến hành cập nhật trạng thái booking #${id} = CANCELLED`);
 
-        // BƯỚC 2: cập nhật trạng thái booking
-        // -> đến giờ mới đụng tới `bookings`, khóa SAU
         const result = await new sql.Request(transaction)
             .input('id', sql.BigInt, id)
             .input('status', sql.VarChar, 'CANCELLED')
@@ -413,6 +394,40 @@ export const BookingModel = {
                 AND (@old_status IS NULL OR status = @old_status)
             `);
 
+        // const bookingResult = await new sql.Request(transaction)
+        //     .input('id', sql.BigInt, id)
+        //     .input('old_status', sql.VarChar, expectedOldStatus ?? null)
+        //     .query(`
+        //         SELECT id, status
+        //         FROM bookings WITH (UPDLOCK, ROWLOCK)
+        //         WHERE id = @id
+        //           AND (@old_status IS NULL OR status = @old_status)
+        //     `);
+
+        // if (bookingResult.recordset.length === 0) {
+        //     await transaction.rollback();
+        //     return null;
+        // }
+        // console.log(`[DEMO] Đã khóa booking #${id}, đang chờ cổng thanh toán xác nhận hủy (6s)...`);
+        // await new Promise((resolve) => setTimeout(resolve, 6000));
+        // console.log(`[DEMO] Hết 6s, tiến hành hủy payment + cập nhật booking #${id} = CANCELLED`);
+        // await new sql.Request(transaction)
+        //     .input('booking_id', sql.BigInt, id)
+        //     .query(`
+        //         UPDATE payments
+        //         SET payment_status = 'CANCELLED'
+        //         WHERE booking_id = @booking_id
+        //           AND payment_status = 'PENDING'
+        //     `);
+        // const result = await new sql.Request(transaction)
+        //     .input('id', sql.BigInt, id)
+        //     .input('status', sql.VarChar, 'CANCELLED')
+        //     .query(`
+        //         UPDATE bookings
+        //         SET status = @status, updated_at = GETDATE()
+        //         OUTPUT INSERTED.id, INSERTED.status, INSERTED.updated_at
+        //         WHERE id = @id
+        //     `);
 
             await transaction.commit();
 
