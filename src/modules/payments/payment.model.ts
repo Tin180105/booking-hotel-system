@@ -19,6 +19,9 @@ export class PaymentModel {
 
             // =========================
             // 1. Lấy thông tin booking
+            // KHÓA dòng booking (UPDLOCK) và GIỮ khóa này
+            // xuyên suốt transaction để tránh 2 giao dịch
+            // cùng xử lý thanh toán / hủy cho 1 booking
             // =========================
             const bookingResult = await new sql.Request(transaction)
                 .input('booking_id', sql.BigInt, data.booking_id)
@@ -27,7 +30,7 @@ export class PaymentModel {
                         id,
                         status,
                         final_amount
-                    FROM bookings
+                    FROM bookings WITH (UPDLOCK, ROWLOCK)
                     WHERE id = @booking_id
                 `);
 
@@ -60,9 +63,23 @@ export class PaymentModel {
             }
 
             // =========================
-            // 4. INSERT PAYMENT
+            // 3b. Giả lập gọi cổng thanh toán
+            // (VNPay/Momo/...) và chờ phản hồi trước khi
+            // ghi nhận kết quả — đây là khoảng thời gian
+            // thực tế hệ thống vẫn đang GIỮ khóa booking ở trên
             // =========================
-            const paymentResult = await new sql.Request(transaction)
+            console.log(`[DEMO] Đang giữ khóa booking #${data.booking_id}, chờ cổng thanh toán phản hồi (6s)...`);
+            await new Promise((resolve) => setTimeout(resolve, 6000));
+            console.log(`[DEMO] Hết 6s, tiến hành cập nhật payment cho booking #${data.booking_id}`);
+
+            // =========================
+            // 4. CẬP NHẬT DÒNG PAYMENT
+            // Mỗi booking đã có sẵn 1 dòng payment PENDING
+            // được tạo lúc sp_CreateBooking chạy -> cập nhật
+            // lại đúng dòng đó (nếu vì lý do gì không có,
+            // fallback sang INSERT mới cho an toàn)
+            // =========================
+            const updatePaymentResult = await new sql.Request(transaction)
                 .input(
                     'booking_id',
                     sql.BigInt,
@@ -89,36 +106,67 @@ export class PaymentModel {
                     paymentStatus
                 )
                 .query(`
-                    INSERT INTO payments
-                    (
-                        booking_id,
-                        payment_method,
-                        transaction_code,
-                        amount,
-                        payment_status,
-                        paid_at
-                    )
+                    UPDATE payments
+                    SET
+                        payment_method = @payment_method,
+                        transaction_code = @transaction_code,
+                        amount = @amount,
+                        payment_status = @payment_status,
+                        paid_at =
+                            CASE
+                                WHEN @payment_status = 'SUCCESS'
+                                THEN GETDATE()
+                                ELSE paid_at
+                            END
                     OUTPUT INSERTED.*
-                    VALUES
-                    (
-                        @booking_id,
-                        @payment_method,
-                        @transaction_code,
-                        @amount,
-                        @payment_status,
-                        CASE
-                            WHEN @payment_status = 'SUCCESS'
-                            THEN GETDATE()
-                            ELSE NULL
-                        END
-                    )
+                    WHERE booking_id = @booking_id
+                      AND payment_status = 'PENDING'
                 `);
 
-            const payment = paymentResult.recordset[0];
+            let payment = updatePaymentResult.recordset[0];
+
+            if (!payment) {
+                // Booking cũ (tạo trước khi có sẵn dòng PENDING) -> tạo mới
+                const insertResult = await new sql.Request(transaction)
+                    .input('booking_id', sql.BigInt, data.booking_id)
+                    .input('payment_method', sql.VarChar(30), data.payment_method)
+                    .input('transaction_code', sql.VarChar(100), data.transaction_code ?? null)
+                    .input('amount', sql.Decimal(12, 2), paymentAmount)
+                    .input('payment_status', sql.VarChar(30), paymentStatus)
+                    .query(`
+                        INSERT INTO payments
+                        (
+                            booking_id,
+                            payment_method,
+                            transaction_code,
+                            amount,
+                            payment_status,
+                            paid_at
+                        )
+                        OUTPUT INSERTED.*
+                        VALUES
+                        (
+                            @booking_id,
+                            @payment_method,
+                            @transaction_code,
+                            @amount,
+                            @payment_status,
+                            CASE
+                                WHEN @payment_status = 'SUCCESS'
+                                THEN GETDATE()
+                                ELSE NULL
+                            END
+                        )
+                    `);
+
+                payment = insertResult.recordset[0];
+            }
 
             // =========================
             // 5. Nếu SUCCESS
             // → Booking CONFIRMED
+            // (dòng booking đã được khóa sẵn từ bước 1,
+            // nên UPDATE này không phải chờ thêm)
             // =========================
             if (paymentStatus === 'SUCCESS') {
 

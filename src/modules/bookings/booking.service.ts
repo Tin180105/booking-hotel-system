@@ -179,6 +179,24 @@ export const BookingService = {
     const existing = await BookingModel.getById(id);
     if (!existing) throw new Error('Không tìm thấy booking');
 
+    // Hủy booking: hủy luôn payment PENDING liên quan (nếu có).
+    // Thao tác này khóa `payments` trước rồi mới khóa `bookings`
+    // -> NGƯỢC thứ tự với lúc "Thanh toán" (khóa `bookings` trước
+    // rồi mới khóa `payments`). Đây chính là chỗ có thể xảy ra DEADLOCK
+    // nếu khách bấm "Thanh toán" và "Hủy thanh toán" gần như cùng lúc
+    // trên cùng 1 booking.
+    if (status === 'CANCELLED') {
+        const cancelled = await BookingModel.cancelBookingAndVoidPayment(id, existing.status);
+
+        if (!cancelled) {
+            throw new Error(
+                `Booking đã bị người khác cập nhật trạng thái (không còn là "${existing.status}"). Vui lòng tải lại trang.`
+            );
+        }
+
+        return cancelled;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 6000)); // vẫn giữ delay để demo lại
 
     const updated = await BookingModel.updateStatus(id, status, existing.status);

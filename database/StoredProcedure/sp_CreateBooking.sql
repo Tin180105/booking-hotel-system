@@ -95,6 +95,101 @@ BEGIN
             );
             ROLLBACK TRANSACTION;
             RETURN;
+        END;USE [BOOKING-HOTEL];
+GO
+
+IF OBJECT_ID('dbo.sp_CreateBooking', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_CreateBooking;
+GO
+
+CREATE PROCEDURE dbo.sp_CreateBooking
+    @HotelId BIGINT,
+    @CustomerId BIGINT,
+    @RoomTypeId BIGINT,
+    @Quantity INT,
+    @CheckIn DATETIME2,
+    @CheckOut DATETIME2,
+    @PromotionId BIGINT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- ========================================
+        -- 1. KIỂM TRA SỐ LƯỢNG
+        -- ========================================
+
+        IF @Quantity <= 0
+        BEGIN
+            RAISERROR(
+                N'Số lượng phòng phải lớn hơn 0',
+                16,
+                1
+            );
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END;
+
+        -- ========================================
+        -- 2. KIỂM TRA NGÀY
+        -- ========================================
+
+        IF @CheckOut <= @CheckIn
+        BEGIN
+            RAISERROR(
+                N'Ngày check-out phải lớn hơn ngày check-in',
+                16,
+                1
+            );
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END;
+
+        -- ========================================
+        -- 3. KIỂM TRA CUSTOMER
+        -- ========================================
+
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM customers
+            WHERE id = @CustomerId
+        )
+        BEGIN
+            RAISERROR(
+                N'Customer không tồn tại',
+                16,
+                1
+            );
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END;
+
+        -- ========================================
+        -- 4. LẤY ROOM TYPE
+        -- ========================================
+
+        DECLARE @TotalRooms INT;
+        DECLARE @BasePrice DECIMAL(12,2);
+
+        SELECT
+            @TotalRooms = total_rooms,
+            @BasePrice = base_price
+        FROM room_types
+        WHERE id = @RoomTypeId
+          AND hotel_id = @HotelId;
+
+        IF @TotalRooms IS NULL
+        BEGIN
+            RAISERROR(
+                N'Loại phòng không tồn tại hoặc không thuộc khách sạn',
+                16,
+                1
+            );
+            ROLLBACK TRANSACTION;
+            RETURN;
         END;
         
 
@@ -130,7 +225,7 @@ BEGIN
     ROLLBACK TRANSACTION;
     RETURN;
 END;
-        -- ========================================
+                -- ========================================
         -- 5. TÍNH TIỀN PHÒNG QUA FUNCTION
         -- ========================================
 
@@ -282,6 +377,29 @@ END;
         );
 
         -- ========================================
+        -- 15b. TẠO SẴN 1 DÒNG PAYMENT (PENDING)
+        -- Đại diện cho khoản thanh toán đang chờ xử lý
+        -- của booking này. Khi khách bấm "Thanh toán"
+        -- hoặc "Hủy" ở FE, hệ thống sẽ cập nhật lại
+        -- đúng dòng này thay vì tạo dòng mới.
+        -- ========================================
+
+        INSERT INTO payments
+        (
+            booking_id,
+            payment_method,
+            amount,
+            payment_status
+        )
+        VALUES
+        (
+            @BookingId,
+            'PENDING',
+            @FinalAmount,
+            'PENDING'
+        );
+
+        -- ========================================
         -- 16. COMMIT
         -- ========================================
 
@@ -318,4 +436,3 @@ END;
     THROW;
 END CATCH;
 END;
-GO

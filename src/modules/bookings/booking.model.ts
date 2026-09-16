@@ -357,6 +357,78 @@ export const BookingModel = {
 },
 
     // ========================================
+    // HỦY BOOKING + HỦY LUÔN PAYMENT ĐANG PENDING
+    // (nếu có) — dùng khi khách bấm "Hủy thanh toán"
+    //
+    // ⚠️ LƯU Ý THỨ TỰ KHÓA (khác với payment.model.ts):
+    // Ở đây khóa bảng `payments` TRƯỚC, rồi mới khóa
+    // `bookings` SAU. Trong khi đó payment.model.ts
+    // (createPayment) lại khóa `bookings` TRƯỚC rồi mới
+    // khóa `payments` SAU.
+    // -> Nếu 1 khách vừa bấm "Thanh toán" vừa bấm/đã bấm
+    // "Hủy" gần như cùng lúc cho cùng 1 booking, 2 giao
+    // tác sẽ khóa chéo nhau => DEADLOCK (SQL Server sẽ
+    // tự chọn 1 giao tác làm "deadlock victim" để rollback,
+    // lỗi 1205).
+    // ========================================
+    async cancelBookingAndVoidPayment(
+        id: number,
+        expectedOldStatus?: string
+    ) {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+
+        await transaction.begin();
+
+        try {
+            // BƯỚC 1: hủy payment đang PENDING của booking này
+            // (khóa dòng `payments` trước)
+            await new sql.Request(transaction)
+                .input('booking_id', sql.BigInt, id)
+                .query(`
+                    UPDATE payments
+                    SET payment_status = 'CANCELLED'
+                    WHERE booking_id = @booking_id
+                      AND payment_status = 'PENDING'
+                `);
+
+            // Giả lập gọi API hủy giao dịch bên cổng thanh toán
+            // và chờ phản hồi trước khi xác nhận hủy booking
+            // (đây cũng là khoảng thời gian dòng payments vẫn
+            // đang bị giữ khóa ở trên)
+            console.log(`[DEMO] Đã khóa payment của booking #${id}, đang chờ cổng thanh toán xác nhận hủy (6s)...`);
+            await new Promise((resolve) => setTimeout(resolve, 6000));
+            console.log(`[DEMO] Hết 6s, tiến hành cập nhật trạng thái booking #${id} = CANCELLED`);
+
+            // BƯỚC 2: cập nhật trạng thái booking
+            // (khóa dòng `bookings` sau)
+            const result = await new sql.Request(transaction)
+                .input('id', sql.BigInt, id)
+                .input('status', sql.VarChar, 'CANCELLED')
+                .input('old_status', sql.VarChar, expectedOldStatus ?? null)
+                .query(`
+                    UPDATE bookings
+                    SET status = @status, updated_at = GETDATE()
+                    OUTPUT INSERTED.id, INSERTED.status, INSERTED.updated_at
+                    WHERE id = @id
+                      AND (@old_status IS NULL OR status = @old_status)
+                `);
+
+            await transaction.commit();
+
+            return result.recordset[0] || null;
+
+        } catch (error) {
+            try {
+                await transaction.rollback();
+            } catch {
+                // đã rollback hoặc chưa begin
+            }
+            throw error;
+        }
+    },
+
+    // ========================================
     // DELETE
     // ========================================
 
