@@ -41,6 +41,32 @@ router.put(
     RoomTypeController.update
 );
 
+// Bấm "Lưu" -> ghi tạm (chưa commit), chờ xác nhận/huỷ
+router.post(
+    '/:id/stage',
+    auth,
+    role('admin', 'hotel'),
+    requireHotelOwnership(async (req: AuthRequest) => {
+        const roomType = await RoomTypeModel.getById(Number(req.params.id));
+        return roomType ? roomType.hotel_id : null;
+    }),
+    RoomTypeController.stageUpdate
+);
+
+router.post(
+    '/staging/:stagingId/confirm',
+    auth,
+    role('admin', 'hotel'),
+    RoomTypeController.confirmUpdate
+);
+
+router.post(
+    '/staging/:stagingId/cancel',
+    auth,
+    role('admin', 'hotel'),
+    RoomTypeController.cancelUpdate
+);
+
 router.delete(
     '/:id',
     auth,

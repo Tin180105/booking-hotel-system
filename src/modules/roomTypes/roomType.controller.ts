@@ -227,6 +227,104 @@ export const RoomTypeController = {
 
 
     // ========================================
+    // LƯU (2 BƯỚC)
+    // ========================================
+
+    async stageUpdate(
+        req: Request,
+        res: Response
+    ) {
+
+        try {
+
+            const id = Number(req.params.id);
+
+            const {
+                name,
+                capacity,
+                total_rooms,
+                base_price,
+                description
+            } = req.body;
+
+            const data = await RoomTypeService.stageUpdate(
+                id,
+                name,
+                Number(capacity),
+                Number(total_rooms),
+                Number(base_price),
+                description
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đã ghi thay đổi, đang chờ xác nhận',
+                data
+            });
+
+        } catch (error: any) {
+
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    },
+
+    async confirmUpdate(
+        req: Request,
+        res: Response
+    ) {
+
+        try {
+
+            const { stagingId } = req.params;
+
+            const data = await RoomTypeService.confirmUpdate(String(stagingId));
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đã lưu thay đổi',
+                data
+            });
+
+        } catch (error: any) {
+
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    },
+
+    async cancelUpdate(
+        req: Request,
+        res: Response
+    ) {
+
+        try {
+
+            const { stagingId } = req.params;
+
+            const data = await RoomTypeService.cancelUpdate(String(stagingId));
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đã huỷ, giá trở lại như cũ',
+                data
+            });
+
+        } catch (error: any) {
+
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    },
+
+
+    // ========================================
     // DELETE
     // ========================================
 

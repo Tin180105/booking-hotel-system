@@ -188,6 +188,74 @@ export const RoomTypeService = {
 
 
     // ========================================
+    // LƯU (2 BƯỚC): bấm "Lưu" -> giữ tạm chờ xác nhận
+    // ========================================
+
+    async stageUpdate(
+        id: number,
+        name: string,
+        capacity: number,
+        totalRooms: number,
+        basePrice: number,
+        description?: string
+    ) {
+
+        if (!Number.isInteger(id) || id <= 0) {
+            throw new Error('Room Type ID không hợp lệ');
+        }
+
+        if (!name || !name.trim()) {
+            throw new Error('Tên loại phòng không được để trống');
+        }
+
+        if (!Number.isInteger(capacity) || capacity <= 0) {
+            throw new Error('Sức chứa phải lớn hơn 0');
+        }
+
+        if (!Number.isInteger(totalRooms) || totalRooms <= 0) {
+            throw new Error('Số lượng phòng phải lớn hơn 0');
+        }
+
+        if (typeof basePrice !== 'number' || basePrice < 0) {
+            throw new Error('Giá phòng không hợp lệ');
+        }
+
+        const roomType = await RoomTypeModel.getById(id);
+
+        if (!roomType) {
+            throw new Error('Không tìm thấy loại phòng');
+        }
+
+        return await RoomTypeModel.stageUpdate(
+            id,
+            name.trim(),
+            capacity,
+            totalRooms,
+            basePrice,
+            description
+        );
+    },
+
+    async confirmUpdate(stagingId: string) {
+
+        if (!stagingId) {
+            throw new Error('Thiếu stagingId');
+        }
+
+        return await RoomTypeModel.confirmUpdate(stagingId);
+    },
+
+    async cancelUpdate(stagingId: string) {
+
+        if (!stagingId) {
+            throw new Error('Thiếu stagingId');
+        }
+
+        return await RoomTypeModel.cancelUpdate(stagingId);
+    },
+
+
+    // ========================================
     // DELETE
     // ========================================
 

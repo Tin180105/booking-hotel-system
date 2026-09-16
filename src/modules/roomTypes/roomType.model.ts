@@ -1,5 +1,17 @@
 import sql from 'mssql';
+import crypto from 'crypto';
 import { getConnection } from '../../config/database';
+
+// ========================================
+// Lưu tạm các transaction "Lưu thay đổi" đang chờ admin
+// xác nhận hoặc huỷ (chưa COMMIT). Khoá theo stagingId.
+// Có timeout an toàn để tự rollback nếu admin bỏ dở, tránh
+// giữ transaction/kết nối mở vô thời hạn.
+// ========================================
+const pendingRoomTypeUpdates = new Map<
+    string,
+    { transaction: sql.Transaction; roomTypeId: number; timeout: NodeJS.Timeout }
+>();
 
 export const RoomTypeModel = {
 
@@ -129,6 +141,10 @@ export const RoomTypeModel = {
 
         const pool = await getConnection();
 
+        // ⚠️ WITH (NOLOCK): bỏ qua khóa để tránh bị chặn khi khách xem
+        // giá phòng lúc có admin/hotel đang sửa giá cùng lúc — đánh đổi
+        // là có thể đọc phải giá CHƯA COMMIT (Dirty Read), xem minh họa
+        // ở hàm demoPriceRollback bên dưới.
         const result = await pool.request()
             .input('id', sql.BigInt, id)
             .query(`
@@ -141,7 +157,7 @@ export const RoomTypeModel = {
                     rt.total_rooms,
                     rt.base_price,
                     rt.description
-                FROM room_types rt
+                FROM room_types rt WITH (NOLOCK)
                 INNER JOIN hotels h
                     ON rt.hotel_id = h.id
                 WHERE rt.id = @id
@@ -256,6 +272,109 @@ export const RoomTypeModel = {
             `);
 
         return result.recordset[0];
+    },
+
+
+    // ========================================
+    // LƯU (2 BƯỚC): bấm "Lưu" -> ghi ngay nhưng CHƯA COMMIT,
+    // giữ transaction mở chờ admin xác nhận hoặc huỷ.
+    // Trong lúc chờ, ai đọc giá bằng getById() (đang dùng
+    // NOLOCK) sẽ thấy được giá trị CHƯA COMMIT này.
+    // ========================================
+
+    async stageUpdate(
+        id: number,
+        name: string,
+        capacity: number,
+        totalRooms: number,
+        basePrice: number,
+        description?: string
+    ) {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+
+        await transaction.begin();
+
+        const result = await new sql.Request(transaction)
+            .input('id', sql.BigInt, id)
+            .input('name', sql.NVarChar(100), name)
+            .input('capacity', sql.Int, capacity)
+            .input('total_rooms', sql.Int, totalRooms)
+            .input('base_price', sql.Decimal(12, 2), basePrice)
+            .input(
+                'description',
+                sql.NVarChar(sql.MAX),
+                description || null
+            )
+            .query(`
+                UPDATE room_types
+                SET
+                    name = @name,
+                    capacity = @capacity,
+                    total_rooms = @total_rooms,
+                    base_price = @base_price,
+                    description = @description
+                OUTPUT
+                    INSERTED.id,
+                    INSERTED.hotel_id,
+                    INSERTED.name,
+                    INSERTED.capacity,
+                    INSERTED.total_rooms,
+                    INSERTED.base_price,
+                    INSERTED.description
+                WHERE id = @id
+            `);
+
+        const stagingId = crypto.randomUUID();
+
+        // An toàn: nếu sau 60s admin không xác nhận cũng không huỷ
+        // (đóng trình duyệt, mất mạng...), tự rollback để không giữ
+        // transaction/kết nối mở mãi.
+        const timeout = setTimeout(async () => {
+            const pending = pendingRoomTypeUpdates.get(stagingId);
+            if (pending) {
+                try {
+                    await pending.transaction.rollback();
+                } catch {
+                    // đã rollback/commit trước đó
+                }
+                pendingRoomTypeUpdates.delete(stagingId);
+            }
+        }, 60000);
+
+        pendingRoomTypeUpdates.set(stagingId, { transaction, roomTypeId: id, timeout });
+
+        return { stagingId, preview: result.recordset[0] };
+    },
+
+    async confirmUpdate(stagingId: string) {
+        const pending = pendingRoomTypeUpdates.get(stagingId);
+
+        if (!pending) {
+            throw new Error('Không tìm thấy thay đổi đang chờ xác nhận (có thể đã hết hạn)');
+        }
+
+        clearTimeout(pending.timeout);
+        pendingRoomTypeUpdates.delete(stagingId);
+
+        await pending.transaction.commit();
+
+        return await RoomTypeModel.getById(pending.roomTypeId);
+    },
+
+    async cancelUpdate(stagingId: string) {
+        const pending = pendingRoomTypeUpdates.get(stagingId);
+
+        if (!pending) {
+            throw new Error('Không tìm thấy thay đổi đang chờ xác nhận (có thể đã hết hạn)');
+        }
+
+        clearTimeout(pending.timeout);
+        pendingRoomTypeUpdates.delete(stagingId);
+
+        await pending.transaction.rollback();
+
+        return await RoomTypeModel.getById(pending.roomTypeId);
     },
 
 
