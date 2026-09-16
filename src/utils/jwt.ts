@@ -17,7 +17,7 @@ export interface JwtPayload {
 }
 
 export const generateTokens = (payload: JwtPayload) => {
-  const accessToken = jwt.sign(payload, ACCESS_SECRET, { expiresIn: '15m' });
+  const accessToken = jwt.sign(payload, ACCESS_SECRET, { expiresIn: '2h' });
   const refreshToken = jwt.sign(payload, REFRESH_SECRET, { expiresIn: '7d' });
   return { accessToken, refreshToken };
 };

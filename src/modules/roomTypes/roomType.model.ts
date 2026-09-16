@@ -300,7 +300,7 @@ export const RoomTypeModel = {
                     WHERE br.room_type_id = rt.id
                       AND br.expected_check_in < @check_out
                       AND br.expected_check_out > @check_in
-                      AND b.status <> 'CANCELLED'
+                      AND b.status NOT IN ('CANCELLED', 'REJECTED')
                 ), 0) AS booked_quantity
             FROM room_types rt
             WHERE rt.id = @id

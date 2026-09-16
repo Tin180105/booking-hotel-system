@@ -31,7 +31,8 @@ const dbConfig: sql.config = {
         idleTimeoutMillis: 30000,
 
     },
-
+    requestTimeout: 30000,
+    connectionTimeout: 30000,
 };
 
 

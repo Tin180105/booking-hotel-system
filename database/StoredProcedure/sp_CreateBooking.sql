@@ -180,7 +180,7 @@ BEGIN
 DECLARE @BookedQuantity INT;
 
 SELECT @BookedQuantity = ISNULL(SUM(br.quantity), 0)
-FROM booking_rooms br 
+FROM booking_rooms br with (UPDLOCK, HOLDLOCK)
 INNER JOIN bookings b
     ON b.id = br.booking_id
 WHERE br.room_type_id = @RoomTypeId
@@ -190,7 +190,8 @@ WHERE br.room_type_id = @RoomTypeId
     AND b.status NOT IN ('CANCELLED', 'REJECTED');
 
 -- ⚠️ DEMO PHANTOM READ — CHỈ THÊM DÒNG NÀY, XÓA SAU KHI QUAY
-WAITFOR DELAY '00:00:10';
+WAITFOR DELAY '00:00:05';
+
 
 IF (@BookedQuantity + @Quantity) > @TotalRooms
 BEGIN
