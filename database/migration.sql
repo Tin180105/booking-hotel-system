@@ -11,16 +11,6 @@ BEGIN
 END
 GO
 
-IF NOT EXISTS (
-    SELECT 1 FROM sys.indexes
-    WHERE name = 'IX_refresh_tokens_session_id'
-      AND object_id = OBJECT_ID('refresh_tokens')
-)
-BEGIN
-    CREATE INDEX IX_refresh_tokens_session_id
-    ON refresh_tokens(session_id, revoked_at, expires_at);
-END
-GO
 
 -- ============================================
 -- 1. DROP FK cũ (refresh_tokens.user_id -> users) nếu còn tồn tại
@@ -136,4 +126,21 @@ BEGIN
             ON DELETE CASCADE
     );
 END
+GO
+
+-- ============================================
+-- BACKFILL: tạo dòng payments PENDING cho các booking
+-- cũ đang chưa có payment nào
+-- ============================================
+INSERT INTO payments (booking_id, payment_method, amount, payment_status)
+SELECT
+    b.id,
+    'PENDING',
+    b.final_amount,
+    'PENDING'
+FROM bookings b
+WHERE b.status NOT IN ('CANCELLED', 'REJECTED')
+  AND NOT EXISTS (
+      SELECT 1 FROM payments p WHERE p.booking_id = b.id
+  );
 GO

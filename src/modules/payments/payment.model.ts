@@ -4,6 +4,7 @@ import { getConnection } from '../../config/database';
 export class PaymentModel {
 
     // CREATE PAYMENT
+        // CREATE PAYMENT
     static async createPayment(data: {
         booking_id: number;
         payment_method: string;

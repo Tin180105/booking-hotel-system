@@ -95,27 +95,7 @@ BEGIN
             );
             ROLLBACK TRANSACTION;
             RETURN;
-        END;USE [BOOKING-HOTEL];
-GO
-
-IF OBJECT_ID('dbo.sp_CreateBooking', 'P') IS NOT NULL
-    DROP PROCEDURE dbo.sp_CreateBooking;
-GO
-
-CREATE PROCEDURE dbo.sp_CreateBooking
-    @HotelId BIGINT,
-    @CustomerId BIGINT,
-    @RoomTypeId BIGINT,
-    @Quantity INT,
-    @CheckIn DATETIME2,
-    @CheckOut DATETIME2,
-    @PromotionId BIGINT = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
+        END;
 
         -- ========================================
         -- 1. KIỂM TRA SỐ LƯỢNG
@@ -170,9 +150,6 @@ BEGIN
         -- ========================================
         -- 4. LẤY ROOM TYPE
         -- ========================================
-
-        DECLARE @TotalRooms INT;
-        DECLARE @BasePrice DECIMAL(12,2);
 
         SELECT
             @TotalRooms = total_rooms,
@@ -374,6 +351,29 @@ END;
             @TotalRoomPrice,
             @CheckIn,
             @CheckOut
+        );
+
+        -- ========================================
+        -- 15b. TẠO SẴN 1 DÒNG PAYMENT (PENDING)
+        -- Đại diện cho khoản thanh toán đang chờ xử lý
+        -- của booking này. Khi khách bấm "Thanh toán"
+        -- hoặc "Hủy" ở FE, hệ thống sẽ cập nhật lại
+        -- đúng dòng này thay vì tạo dòng mới.
+        -- ========================================
+
+        INSERT INTO payments
+        (
+            booking_id,
+            payment_method,
+            amount,
+            payment_status
+        )
+        VALUES
+        (
+            @BookingId,
+            'PENDING',
+            @FinalAmount,
+            'PENDING'
         );
 
         -- ========================================
