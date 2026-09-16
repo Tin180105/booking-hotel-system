@@ -83,16 +83,28 @@ BEGIN
         END;
 
 
-        -- =========================================
+                -- =========================================
         -- 5. Commission
         -- =========================================
+
+        -- ⚠️ DEMO NON-REPEATABLE READ — XÓA SAU KHI QUAY XONG
+        DECLARE @CommissionRateAtStart DECIMAL(5,2) = @CommissionRate;
+
+        WAITFOR DELAY '00:00:08'; -- chờ 8s để kịp đổi commission ở tab admin khác
+
+        DECLARE @CommissionRateRecheck DECIMAL(5,2);
+
+        SELECT @CommissionRateRecheck = commission_rate
+        FROM hotels
+        WHERE id = @HotelId;
+        -- ⚠️ HẾT ĐOẠN DEMO
 
         DECLARE @TotalCommission DECIMAL(12,2);
 
         SET @TotalCommission =
             ROUND(
                 @TotalBookingAmount
-                * @CommissionRate
+                * @CommissionRateRecheck   -- dùng giá trị đọc lại (đã đổi), thay vì @CommissionRate ban đầu
                 / 100,
                 2
             );
@@ -137,7 +149,7 @@ BEGIN
         -- 8. Trả về dữ liệu
         -- =========================================
 
-        SELECT
+                SELECT
             p.id,
             p.hotel_id,
             h.name AS hotel_name,
@@ -147,10 +159,11 @@ BEGIN
             p.payout_amount,
             p.status,
             p.payout_date,
-            p.created_at
+            p.created_at,
+            @CommissionRateAtStart AS debug_commission_rate_lan1,   -- ⚠️ DEMO, xóa sau
+            @CommissionRateRecheck AS debug_commission_rate_lan2    -- ⚠️ DEMO, xóa sau
         FROM payouts p
-        INNER JOIN hotels h
-            ON p.hotel_id = h.id
+        INNER JOIN hotels h ON p.hotel_id = h.id
         WHERE p.id = SCOPE_IDENTITY();
 
 

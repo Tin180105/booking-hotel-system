@@ -1,3 +1,4 @@
+import sql from 'mssql';
 import { getConnection } from "../../config/database";
 
 export interface CreateHotelRequest {

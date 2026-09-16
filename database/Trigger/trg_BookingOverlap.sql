@@ -42,3 +42,5 @@ BEGIN
     END
 END;
 GO
+
+DISABLE TRIGGER trg_BookingOverlap ON booking_rooms;

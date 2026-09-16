@@ -272,5 +272,7 @@ export const RoomTypeController = {
     } catch (error: any) {
         return res.status(400).json({ success: false, message: error.message });
     }
-}
+},
+
+
 };

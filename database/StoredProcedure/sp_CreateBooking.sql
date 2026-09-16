@@ -1,6 +1,8 @@
 USE [BOOKING-HOTEL];
 GO
 
+
+
 IF OBJECT_ID('dbo.sp_CreateBooking', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_CreateBooking;
 GO
@@ -100,10 +102,13 @@ BEGIN
 -- 4b. KIỂM TRA SỐ PHÒNG CÒN TRỐNG
 -- ========================================
 
+-- ========================================
+-- 4b. KIỂM TRA SỐ PHÒNG CÒN TRỐNG
+-- ========================================
 DECLARE @BookedQuantity INT;
 
 SELECT @BookedQuantity = ISNULL(SUM(br.quantity), 0)
-FROM booking_rooms br
+FROM booking_rooms br 
 INNER JOIN bookings b
     ON b.id = br.booking_id
 WHERE br.room_type_id = @RoomTypeId
@@ -112,15 +117,16 @@ WHERE br.room_type_id = @RoomTypeId
   AND br.expected_check_out > @CheckIn
     AND b.status NOT IN ('CANCELLED', 'REJECTED');
 
+-- ⚠️ DEMO PHANTOM READ — CHỈ THÊM DÒNG NÀY, XÓA SAU KHI QUAY
+WAITFOR DELAY '00:00:10';
+
 IF (@BookedQuantity + @Quantity) > @TotalRooms
 BEGIN
     DECLARE @Remaining INT = @TotalRooms - @BookedQuantity;
-
     RAISERROR(
         N'Không đủ phòng trống trong khoảng thời gian đã chọn (chỉ còn %d phòng).',
         16, 1, @Remaining
     );
-
     ROLLBACK TRANSACTION;
     RETURN;
 END;
