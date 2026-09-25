@@ -3,10 +3,7 @@ import crypto from 'crypto';
 import { getConnection } from '../../config/database';
 
 // ========================================
-// Lưu tạm các transaction "Lưu thay đổi" đang chờ admin
-// xác nhận hoặc huỷ (chưa COMMIT). Khoá theo stagingId.
-// Có timeout an toàn để tự rollback nếu admin bỏ dở, tránh
-// giữ transaction/kết nối mở vô thời hạn.
+
 // ========================================
 const pendingRoomTypeUpdates = new Map<
     string,
@@ -141,10 +138,9 @@ export const RoomTypeModel = {
 
         const pool = await getConnection();
 
-        // ⚠️ WITH (NOLOCK): bỏ qua khóa để tránh bị chặn khi khách xem
         // giá phòng lúc có admin/hotel đang sửa giá cùng lúc — đánh đổi
         // là có thể đọc phải giá CHƯA COMMIT (Dirty Read), xem minh họa
-        // ở hàm demoPriceRollback bên dưới.
+        // ở hàm stageUpdate/confirmUpdate/cancelUpdate bên dưới.
         const result = await pool.request()
             .input('id', sql.BigInt, id)
             .query(`
@@ -276,10 +272,7 @@ export const RoomTypeModel = {
 
 
     // ========================================
-    // LƯU (2 BƯỚC): bấm "Lưu" -> ghi ngay nhưng CHƯA COMMIT,
-    // giữ transaction mở chờ admin xác nhận hoặc huỷ.
-    // Trong lúc chờ, ai đọc giá bằng getById() (đang dùng
-    // NOLOCK) sẽ thấy được giá trị CHƯA COMMIT này.
+
     // ========================================
 
     async stageUpdate(
@@ -327,9 +320,7 @@ export const RoomTypeModel = {
 
         const stagingId = crypto.randomUUID();
 
-        // An toàn: nếu sau 60s admin không xác nhận cũng không huỷ
-        // (đóng trình duyệt, mất mạng...), tự rollback để không giữ
-        // transaction/kết nối mở mãi.
+
         const timeout = setTimeout(async () => {
             const pending = pendingRoomTypeUpdates.get(stagingId);
             if (pending) {
