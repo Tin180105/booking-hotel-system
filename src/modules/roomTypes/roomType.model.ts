@@ -62,7 +62,7 @@ export const RoomTypeModel = {
                         thumbnail.image_url,
                         fallback_thumbnail.image_url
                     ) AS thumbnail_url
-                FROM room_types rt
+                FROM room_types rt WITH (NOLOCK) -- Dirty Read: khách thấy giá chưa commit
                 INNER JOIN hotels h
                     ON rt.hotel_id = h.id
                 OUTER APPLY (
@@ -108,7 +108,7 @@ export const RoomTypeModel = {
                         thumbnail.image_url,
                         fallback_thumbnail.image_url
                     ) AS thumbnail_url
-                FROM room_types
+                FROM room_types WITH (NOLOCK) -- Dirty Read: khách thấy giá chưa commit
                 OUTER APPLY (
                     SELECT TOP 1
                         image_url
@@ -235,6 +235,8 @@ export const RoomTypeModel = {
         description?: string
     ) {
 
+        console.log(`[DirtyRead] PUT UPDATE truc tiep (auto-commit) room ${id} base_price=${basePrice}`);
+
         const pool = await getConnection();
 
         const result = await pool.request()
@@ -288,7 +290,9 @@ export const RoomTypeModel = {
 
         await transaction.begin();
 
-        const result = await new sql.Request(transaction)
+        let result: sql.IResult<any>;
+        try {
+            result = await new sql.Request(transaction)
             .input('id', sql.BigInt, id)
             .input('name', sql.NVarChar(100), name)
             .input('capacity', sql.Int, capacity)
@@ -317,6 +321,15 @@ export const RoomTypeModel = {
                     INSERTED.description
                 WHERE id = @id
             `);
+        } catch (err) {
+            // UPDATE lỗi thì phải rollback, nếu không transaction treo giữ lock + connection
+            try {
+                await transaction.rollback();
+            } catch {
+                // transaction đã bị SQL Server tự huỷ
+            }
+            throw err;
+        }
 
         const stagingId = crypto.randomUUID();
 
@@ -325,6 +338,7 @@ export const RoomTypeModel = {
             const pending = pendingRoomTypeUpdates.get(stagingId);
             if (pending) {
                 try {
+                    console.log(`[DirtyRead] TIMEOUT 60s -> ROLLBACK room ${pending.roomTypeId} (${stagingId})`);
                     await pending.transaction.rollback();
                 } catch {
                     // đã rollback/commit trước đó
@@ -333,6 +347,7 @@ export const RoomTypeModel = {
             }
         }, 60000);
 
+        console.log(`[DirtyRead] STAGE room ${id} base_price=${basePrice} (${stagingId}) - chua commit`);
         pendingRoomTypeUpdates.set(stagingId, { transaction, roomTypeId: id, timeout });
 
         return { stagingId, preview: result.recordset[0] };
@@ -342,12 +357,14 @@ export const RoomTypeModel = {
         const pending = pendingRoomTypeUpdates.get(stagingId);
 
         if (!pending) {
+            console.log(`[DirtyRead] CONFIRM that bai - khong tim thay ${stagingId}`);
             throw new Error('Không tìm thấy thay đổi đang chờ xác nhận (có thể đã hết hạn)');
         }
 
         clearTimeout(pending.timeout);
         pendingRoomTypeUpdates.delete(stagingId);
 
+        console.log(`[DirtyRead] COMMIT room ${pending.roomTypeId} (${stagingId})`);
         await pending.transaction.commit();
 
         return await RoomTypeModel.getById(pending.roomTypeId);
@@ -357,12 +374,14 @@ export const RoomTypeModel = {
         const pending = pendingRoomTypeUpdates.get(stagingId);
 
         if (!pending) {
+            console.log(`[DirtyRead] CANCEL that bai - khong tim thay ${stagingId} (da commit/het han?)`);
             throw new Error('Không tìm thấy thay đổi đang chờ xác nhận (có thể đã hết hạn)');
         }
 
         clearTimeout(pending.timeout);
         pendingRoomTypeUpdates.delete(stagingId);
 
+        console.log(`[DirtyRead] ROLLBACK room ${pending.roomTypeId} (${stagingId})`);
         await pending.transaction.rollback();
 
         return await RoomTypeModel.getById(pending.roomTypeId);
@@ -412,7 +431,7 @@ export const RoomTypeModel = {
                       AND br.expected_check_out > @check_in
                       AND b.status NOT IN ('CANCELLED', 'REJECTED')
                 ), 0) AS booked_quantity
-            FROM room_types rt
+            FROM room_types rt WITH (NOLOCK)
             WHERE rt.id = @id
         `);
 
